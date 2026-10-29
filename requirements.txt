@@ -1,0 +1,16 @@
+# core
+torch
+numpy
+opencv-python
+pillow
+scipy
+
+# service
+fastapi
+uvicorn
+
+# optional: YOLO feature training (tools/train_yolo_depth.py); weights AGPL
+# ultralytics
+
+# optional: QC probes (tools/qc_*.py)
+# playwright

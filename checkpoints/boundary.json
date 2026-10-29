@@ -1,0 +1,15 @@
+{
+ "args": {
+  "data": "data_full",
+  "depth": "checkpoints/depth.pt",
+  "out": "checkpoints/boundary.pt",
+  "epochs": 24,
+  "batch": 16,
+  "lr": 0.0004,
+  "val_frac": 0.2,
+  "use_pred": 0.6,
+  "smoke": false,
+  "seed": 0
+ },
+ "best_endpoint_m": 0.03227962961952601
+}

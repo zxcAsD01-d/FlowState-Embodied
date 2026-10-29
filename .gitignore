@@ -1,0 +1,21 @@
+# runtime artifacts
+runs/
+*.log
+*.pid
+__pycache__/
+*.pyc
+
+# data (regenerate with tools/generate_data.py)
+data_raw/
+data_full/
+data_demo/
+data_demo_ultra/
+
+# local assets not redistributed
+assets/
+external/
+weights/*.pt
+
+# scratch
+debug_*.png
+*.tmp

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ARDY-v · 视觉导航与在线避障</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/vendor/three/three.module.js",
+        "three/addons/": "/vendor/addons/",
+        "@pixiv/three-vrm": "/vendor/three-vrm/three-vrm.module.min.js",
+        "cannon-es": "/vendor/cannon-es.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="stage"></canvas>
+
+  <header id="hud">
+    <div class="title">ARDY-v <span>视觉导航与在线避障</span></div>
+    <div class="row"><b id="mode">visual</b><span id="status">连接中…</span></div>
+    <div class="row small"><span id="dist">—</span><span id="lat">—</span></div>
+    <div class="row small"><span id="action">idle</span><span id="modeNote"></span></div>
+    <div class="row small"><span id="nav">规划 —</span></div>
+    <label class="row small toggle"><input id="useVisual" type="checkbox" checked> 在线视觉规划（关闭=目标直走先验）</label>
+  </header>
+
+  <aside id="inset">
+    <div class="cap">eye · 视觉输入</div>
+    <img id="eyeImg" alt="eye">
+    <div class="cap">绝对深度 · 米</div>
+    <img id="depthImg" alt="depth">
+    <div class="legend"><span>0.2</span><span>5</span><span>20</span></div>
+    <div class="cap">碰撞掩码 · 红=障碍物</div>
+    <img id="maskImg" alt="mask">
+    <div class="cap">在线视觉占据 · 红=不可进入 · 绿=路线</div>
+    <img id="regionImg" alt="region">
+  </aside>
+
+  <div id="hint">点击地面设目标 · 拖动方块改变环境 · 角色自主规划，原路线不可行才重规划</div>
+  <button id="resetBtn">重置</button>
+
+  <div id="loading">
+    <div class="box">
+      <div class="spin"></div>
+      <div id="loadingText">ARDY core8 加载中…</div>
+    </div>
+  </div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+ "args": {
+  "data": "data_full",
+  "out": "checkpoints/depth.pt",
+  "epochs": 18,
+  "batch": 8,
+  "lr": 0.0003,
+  "val_frac": 0.2,
+  "smoke": false,
+  "seed": 0
+ },
+ "best_rmse": 1.1255943321211392,
+ "metrics": []
+}
