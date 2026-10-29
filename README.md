@@ -1,13 +1,18 @@
 # FlowState-Embodied
 
-研究仓库：把冻结的运动扩散模型（ARDY Core8）接到第一人称视觉导航上——
-相机画面经冻结 DINOv2 编码出公制深度与碰撞掩码，在线累积占据地图，A* 规划
-连续路线，再由 ARDY 作为根边界条件逐窗生成步态，驱动 three.js 里的 VRM 角色。
-只给起点和终点，角色自己判断碰撞、规划路线、发现环境变化后重规划。
+研究仓库：同一个冻结的运动扩散模型（ARDY Core8）作为共享的动作生成底座，
+两条**并行、同等重要**的上层驱动路线——ARDY 只负责把决策变成连续步态，
+决定"做什么、去哪里、和谁互动"的是各自的上层：
 
-本仓库开源这条路线（视觉 → 占据 → 规划 → 生成 → 重定向）的实现，
-以及可复跑的**部分测试路线**（`ARDY-V/routes/`）。生成器本体属于外部研究
-代码，不在本仓库内分发。
+* **[`ARDY-V/`](ARDY-V/README.md)** · **视觉驱动** — 第一人称视觉导航：
+  相机画面 → 冻结 DINOv2 编码出公制深度与碰撞掩码 → 在线占据地图 →
+  A* 规划 → ARDY 逐窗生成步态。只给起点终点，角色自己避障、重规划。
+* **[`AL-Duet/`](AL-Duet/README.md)** · **状态机驱动** — 多 AI 同场社交行为：
+  70 状态社交 FSM + 情绪 FSM 是每个角色的大脑，感知喂给状态机、状态机
+  稀疏决策、ARDY 执行，N 个角色在同一街景里探索、相遇、问候、对话。
+
+两条路线独立封装、互不依赖、可分别运行；共享同一份 ARDY 运行经验
+（根轨迹边界、步态保真的清洗规则、扩散步数消融结论）。
 
 ## 仓库结构
 
@@ -16,24 +21,31 @@ FlowState-Embodied/
 ├── README.md          本文件（仓库说明）
 ├── LICENSE            MIT
 ├── .gitignore
-├── ARDY-V/            第一人称视觉导航（DINOv2 → 占据 → A* → ARDY），独立目录封装
-└── AL-Duet/           多 AI 同场社交行为平台（状态机 → ARDY 持续生成 → 视觉回路），独立目录封装
-    ├── ardy_v/        服务、运行时、导航、推理、训练
-    ├── web/           three.js + three-vrm + cannon-es 前端
-    ├── routes/        测试路线 JSON
-    ├── tools/         路线运行器、数据生成、训练、QC 探针
-    ├── checkpoints/   训练好的读出头
-    ├── assets/        演示 VRM
-    ├── docs/          演示截图
+├── ARDY-V/            视觉驱动：第一人称导航（独立目录，见其 README）
+│   ├── ardy_v/        服务、运行时、导航、推理、训练
+│   ├── web/           three.js + three-vrm + cannon-es 前端
+│   ├── routes/        测试路线 JSON
+│   ├── tools/         路线运行器、数据生成、训练、QC 探针
+│   ├── checkpoints/   训练好的读出头
+│   ├── assets/        演示 VRM
+│   ├── docs/          演示截图
+│   └── requirements.txt
+└── AL-Duet/           状态机驱动：多 AI 同场社交（独立目录，见其 README）
+    ├── engine/        贯通脚本：感知 → 社交/情绪 FSM → ARDY → 世界
+    ├── backend/       FastAPI：N-agent 直播帧缓冲
+    ├── web/           three.js + three-vrm 播放器（vendor 内置）
+    ├── assets/        演示 VRM + 场景清单
+    ├── social 数据/   states.yaml + rules.yaml（随 engine/social 分发）
     └── requirements.txt
 ```
 
-## AL-Duet：多 AI 同场社交行为平台
+---
 
-`AL-Duet/` 是同一 ARDY 运动生成底座上的第二条路线：N 个 AI 角色在同一三维
-街景中各自运行"感知 → 社交/情绪状态机 → ARDY 持续动作生成 → 视觉回路"的
-闭环，支持实时并行推理（多角色一次扩散 pass）与非实时推理后播放两种结构。
-安装、运行与行为细节见 [`AL-Duet/README.md`](AL-Duet/README.md)。
+## ARDY-V · 视觉驱动的第一人称导航
+
+生成器本体属于外部研究代码，不在本仓库内分发。本路线开源
+（视觉 → 占据 → 规划 → 生成 → 重定向）的实现，以及可复跑的
+**部分测试路线**（`ARDY-V/routes/`）。
 
 下文所有命令默认先 `cd ARDY-V`。
 
@@ -54,7 +66,7 @@ FlowState-Embodied/
             VRM 重定向（three-vrm）+ cannon-es 物理（箱子可拖拽）
 ```
 
-## 这条路线为什么这样设计
+### 这条路线为什么这样设计
 
 - **根节点边界而不是逐关节控制**：ARDY 的原生接口是根轨迹/关键帧/末端等式约束。
   每 8 帧给模型一条机体坐标系的根路径（前向弧长、横向偏移、绝对航向偏移），
@@ -69,7 +81,7 @@ FlowState-Embodied/
 - **在线占据而非一次性建图**：掩码按相机位姿投影到世界系、带 hit/miss 更新；
   箱子被拖拽或路线被挡时，地图失效触发重规划（见 `routes/blocked_midway.json`）。
 
-## 测试路线（routes/）
+### 测试路线（routes/）
 
 路线是纯 JSON：起点固定、目标、箱子摆位、超时、验收条件。`tools/run_route.py`
 用与用户完全相同的页面 API（setTarget / moveBox / reset）跑真实闭环（需要
@@ -90,7 +102,7 @@ python tools/run_route.py routes/slalom.json          # 三箱交错绕行
 `minSdf` 是执行根轨迹到障碍的最小有符号距离（负值为侵入）；
 `collision` 是物理碰撞，如实报告、不隐藏。
 
-## 训练了什么 / 冻结了什么
+### 训练了什么 / 冻结了什么
 
 - **冻结**：ARDY Core8（`ARDY-Core-RP-20FPS-Horizon8`）、DINOv2 ViT-B/14 reg4。
 - **本仓库训练的读出头**（checkpoints 内）：绝对深度（`depth.pt`）、
@@ -98,7 +110,7 @@ python tools/run_route.py routes/slalom.json          # 三箱交错绕行
   掩码 IoU 0.866）、YOLO 特征深度（`yolo26n-depth.pt`，备选）。
 - 没有 ARDY LoRA / 精调；动作质量全部来自冻结模型本身。
 
-## 运行 demo
+### 运行 demo
 
 ```bash
 pip install -r requirements.txt
@@ -111,7 +123,7 @@ python -m uvicorn ardy_v.service:app --host 127.0.0.1 --port 8830
   更优路线时重规划。
 - HUD：第一人称画面、预测深度（灰度）、在线占据地图、逐窗导航状态。
 
-## 外部依赖（不在本仓库）
+### 外部依赖（不在本仓库）
 
 | 依赖 | 来源 | 环境变量 |
 |---|---|---|
@@ -120,20 +132,7 @@ python -m uvicorn ardy_v.service:app --host 127.0.0.1 --port 8830
 | DINOv2 ViT-B/14 reg4 权重 | 首次运行由 torch.hub 缓存自动下载 | — |
 | YOLO 权重（可选，仅 `tools/train_yolo_depth.py`） | 自行下载（AGPL 许可） | `FLOWSTATE_YOLO_WEIGHTS` |
 
-## 目录结构（ARDY-V/ 内）
-
-```
-ardy_v/       服务（FastAPI）、ARDY 运行时、路线追踪、占据地图、
-              深度/导航/YOLO 推理、数据与训练 IO
-web/          three.js + three-vrm + cannon-es 前端（vendor 内置）
-routes/       测试路线 JSON（本仓库开源的测试基准）
-tools/        run_route.py 路线运行器；数据生成、训练、QC 探针
-checkpoints/  训练好的读出头（depth / boundary / nav / yolo-depth）
-assets/       演示用 VRM 角色
-docs/         演示截图
-```
-
-## 已知局限
+### 已知局限
 
 - 导航器的占据地图在个别接近角下会误报障碍（深度头的眼高域偏移），
   偶发触发多余重规划；地图误修复原后重规划风暴显著减少，但**间歇性失败
@@ -142,9 +141,38 @@ docs/         演示截图
 - 本仓库仅为"视觉 + 规划 + 重定向"半边；没有外部 ARDY 栈无法生成动作。
 - Core27 无手指链，操作类任务不在范围内。
 
+---
+
+## AL-Duet · 状态机驱动的多 AI 同场社交
+
+这条路线里**驱动动作的不是规划器，是状态机**：每个角色一套 70 状态社交
+FSM + 情绪 FSM（数据驱动，`states.yaml`/`rules.yaml` 随仓库分发），感知
+（几何真值或像素级视觉）只负责喂事实，状态机在 0.4 s 仿真窗上稀疏决策，
+ARDY 只负责把决策执行成连续步态。角色自己判断环境——单人时进探索模式
+（航点巡游 + 防撞），见到人自动切入社交（接近 → 问候 → 对话 → 告别，
+个人空间被侵入时后撤），支持实时并行推理（多角色一次扩散 pass）与
+非实时推理后播放两种结构。
+
+```
+感知（几何/像素）──► 社交 FSM ＋ 情绪 FSM（大脑，稀疏决策）
+                          │ 行为计划：接近/问候/对话/后撤/探索
+                          ▼
+                 ARDY Core8（冻结，10 步，N 角色一次扩散 pass）
+                          │ 姿态
+                          ▼
+        外部根控制器（逐帧跟随原始位移，零滑步）──► VRM 重定向 + 直播/落盘
+```
+
+安装、运行（含自带预生成 episode 的纯播放模式）与状态机调优经验见
+[`AL-Duet/README.md`](AL-Duet/README.md)。
+
+---
+
 ## 素材与许可
 
 代码以 [MIT](LICENSE) 发布。`web/vendor` 内第三方库（three.js、three-vrm、
-cannon-es）保留各自许可证。`assets/avatar.vrm` 为第三方角色模型，
-**仅用于本仓库的演示与评测**，不随 MIT 许可授权，二次分发/商用请自行确认权利。
-`checkpoints/*.pt` 为本仓库训练的读出头，按原样提供。
+cannon-es）保留各自许可证。`ARDY-V/assets/avatar.vrm` 与
+`AL-Duet/assets/avatar.vrm` 为第三方角色模型，**仅用于本仓库的演示与评测**，
+不随 MIT 许可授权，二次分发/商用请自行确认权利。`ARDY-V/checkpoints/*.pt`
+为该路线训练的读出头，按原样提供。樱花街景模块来自 MIT 的 sakura-crossing
+项目（credit 见 `AL-Duet/assets/scenes/*/scene.json`）。
