@@ -6,8 +6,28 @@
 只给起点和终点，角色自己判断碰撞、规划路线、发现环境变化后重规划。
 
 本仓库开源这条路线（视觉 → 占据 → 规划 → 生成 → 重定向）的实现，
-以及可复跑的**部分测试路线**（`routes/`）。ARDY 生成器本体属于外部研究代码，
-不在本仓库内分发。
+以及可复跑的**部分测试路线**（`ARDY-V/routes/`）。生成器本体属于外部研究
+代码，不在本仓库内分发。
+
+## 仓库结构
+
+```
+FlowState-Embodied/
+├── README.md          本文件（仓库说明）
+├── LICENSE            MIT
+├── .gitignore
+└── ARDY-V/            项目主体，独立目录封装
+    ├── ardy_v/        服务、运行时、导航、推理、训练
+    ├── web/           three.js + three-vrm + cannon-es 前端
+    ├── routes/        测试路线 JSON
+    ├── tools/         路线运行器、数据生成、训练、QC 探针
+    ├── checkpoints/   训练好的读出头
+    ├── assets/        演示 VRM
+    ├── docs/          演示截图
+    └── requirements.txt
+```
+
+下文所有命令默认先 `cd ARDY-V`。
 
 ```
 第一人称 RGB ──► DINOv2 ViT-B/14（冻结）+ 深度头 + 碰撞头（本仓库训练）
@@ -92,7 +112,7 @@ python -m uvicorn ardy_v.service:app --host 127.0.0.1 --port 8830
 | DINOv2 ViT-B/14 reg4 权重 | 首次运行由 torch.hub 缓存自动下载 | — |
 | YOLO 权重（可选，仅 `tools/train_yolo_depth.py`） | 自行下载（AGPL 许可） | `FLOWSTATE_YOLO_WEIGHTS` |
 
-## 目录结构
+## 目录结构（ARDY-V/ 内）
 
 ```
 ardy_v/       服务（FastAPI）、ARDY 运行时、路线追踪、占据地图、
