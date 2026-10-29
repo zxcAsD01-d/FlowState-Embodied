@@ -1,0 +1,11 @@
+{
+ "name": "blocked_midway",
+ "kind": "block",
+ "description": "先正常行走，再把 0 号箱放到剩余路线前方 2.5 m 的视野内；必须在一次失效内重新规划并继续到达",
+ "goal": [5, 5],
+ "boxes": [],
+ "block_slot": 0,
+ "block_dist": 2.5,
+ "timeout_s": 120,
+ "expect": {"arrived": true, "collision": false, "violation": false}
+}

@@ -11,8 +11,7 @@ data_full/
 data_demo/
 data_demo_ultra/
 
-# local assets not redistributed
-assets/
+# external checkouts (see README 外部依赖)
 external/
 weights/*.pt
 

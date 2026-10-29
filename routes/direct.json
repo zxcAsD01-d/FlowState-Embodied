@@ -1,0 +1,9 @@
+{
+ "name": "direct",
+ "kind": "walk",
+ "description": "默认出生点 (-5,-5) 直达目标 (5,5)，中央固定箱在路线上，必须自行绕行",
+ "goal": [5, 5],
+ "boxes": [],
+ "timeout_s": 90,
+ "expect": {"arrived": true, "collision": false, "violation": false}
+}

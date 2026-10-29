@@ -1,0 +1,13 @@
+{
+ "name": "slalom",
+ "kind": "walk",
+ "description": "三只箱子交错摆放在对角路线上，路线需要连续左右绕行",
+ "goal": [5, 5],
+ "boxes": [
+  {"slot": 0, "x": -2.2, "z": -2.8, "y": 0.8},
+  {"slot": 1, "x": 0.8, "z": -0.2, "y": 0.8},
+  {"slot": 2, "x": 3.0, "z": 2.4, "y": 0.8}
+ ],
+ "timeout_s": 120,
+ "expect": {"arrived": true, "collision": false, "violation": false}
+}
