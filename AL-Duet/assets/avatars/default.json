@@ -1,0 +1,10 @@
+{
+  "id": "default",
+  "name": "Default Avatar",
+  "kind": "vrm",
+  "file": "avatar.vrm",
+  "height_m": 1.62,
+  "yaw_offset_deg": 0,
+  "credit": "Mafuyu v0.91 · 有坂みと (demo avatar)",
+  "license_note": "模型许可禁止再分发；此 VRM 仅作演示随仓库分发，许可由原权利人保留。可放同目录 avatar.vrm 或改本清单替换自己的角色。"
+}

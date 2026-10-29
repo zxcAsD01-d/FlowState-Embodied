@@ -1,0 +1,2058 @@
+version: '0.1'
+# 显式文本社交状态机。每个 state.text 是之后交给编码器的语义描述；
+# action 是交给 ARDY 关键帧执行器的意图；transitions.when 只引用 rules.py 的事实。
+start_states: [solo_idle, solo_travel, walk_through, freeze_unknown]
+
+states:
+  # ------------------------------------------------------------------ solo
+  - id: solo_idle
+    name_zh: 独自待机
+    family: solo
+    l1: 1
+    text: "我独自站着，四周没有可交流的人；视线缓慢扫过环境，等待有人出现或出现可去的地方。"
+    invariants: ["社交距离内没有其他人"]
+    action: {intent: stand, target: none, gaze: scan, hand: none, heading: keep, speed_band: [0.0, 0.05]}
+    min_dwell: 1.0
+    max_dwell: 8.0
+    fallback: solo_scan
+    transitions:
+      - to: approach_person
+        prior: 1.4
+        why: "发现六米内有人且感知可信，主动接近"
+        when:
+          all:
+            - {fact: persons.count, op: '>=', value: 1}
+            - {fact: nearest.distance, op: '<=', value: 6.0}
+            - {fact: nearest.confidence, op: '>=', value: 0.5}
+      - to: solo_travel
+        prior: 0.8
+        why: "我有了明确目的地"
+        when: {fact: self.has_goal, op: '==', value: true}
+      - to: solo_menu
+        prior: 1.0
+        why: "打开菜单"
+        when: {fact: self.menu_open, op: '==', value: true}
+      - to: observe_near
+        prior: 1.6
+        why: "有人主动靠近到近处"
+        when:
+          all:
+            - {fact: recent.approach, within: 2.0, op: '==', value: true}
+            - {fact: nearest.distance, op: '<=', value: 4.0}
+      - to: solo_practice
+        prior: 0.25
+        why: "一个人待久了，试一个动作"
+        when:
+          all:
+            - {fact: persons.count, op: '==', value: 0}
+            - {fact: dwell, op: '>=', value: 4.0}
+      - to: walk_through
+        prior: 0.9
+        why: "身体已经在移动，转入穿行"
+        when:
+          all:
+            - {fact: self.moving, op: '==', value: true}
+            - {fact: dwell, op: '>=', value: 1.5}
+
+  - id: solo_scan
+    name_zh: 独自寻找
+    family: solo
+    l1: 1
+    text: "我在独自寻找可加入的人群或可交互的对象，身体缓慢转动，注意力向外。"
+    invariants: ["没有正在进行的对话"]
+    action: {intent: stand, target: none, gaze: scan, hand: none, heading: keep, speed_band: [0.0, 0.15]}
+    min_dwell: 1.0
+    max_dwell: 10.0
+    fallback: solo_idle
+    transitions:
+      - to: approach_person
+        prior: 1.3
+        why: "找到可接近的人"
+        when:
+          all:
+            - {fact: nearest.distance, op: '<=', value: 6.0}
+            - {fact: nearest.confidence, op: '>=', value: 0.5}
+      - to: solo_travel
+        prior: 0.7
+        why: "找到目的地"
+        when: {fact: self.has_goal, op: '==', value: true}
+      - to: walk_through
+        prior: 0.4
+        why: "人群密度高，改为穿行观察"
+        when: {fact: scene.crowd, op: '>=', value: 0.6}
+
+  - id: solo_travel
+    name_zh: 独自赶路
+    family: solo
+    l1: 1
+    text: "我独自前往一个明确地点，路线清楚，不打算在路上社交。"
+    invariants: ["有目的地", "不在对话中"]
+    action: {intent: walk, target: path, gaze: path, hand: none, heading: path, speed_band: [0.6, 1.2]}
+    min_dwell: 1.0
+    max_dwell: 20.0
+    fallback: solo_settle
+    transitions:
+      - to: solo_settle
+        prior: 1.5
+        why: "到达目的地"
+        when: {fact: self.at_goal, op: '==', value: true}
+      - to: walk_through
+        prior: 0.5
+        why: "前方人群密集"
+        when: {fact: scene.crowd, op: '>=', value: 0.6}
+      - to: approach_person
+        prior: 0.6
+        why: "路上被人明确打招呼"
+        when:
+          all:
+            - {fact: recent.greet, within: 2.0, op: '==', value: true}
+            - {fact: nearest.relationship, op: 'in', value: [acquaintance, friend, close]}
+
+  - id: solo_practice
+    name_zh: 独自试动作
+    family: solo
+    l1: 1
+    text: "我独自试手势、表情或 avatar 功能，注意力在自己的身体上，不在别人身上。"
+    invariants: ["没有交流对象"]
+    action: {intent: wave, target: none, gaze: down, hand: wave, heading: keep, hold_s: 1.5}
+    min_dwell: 1.0
+    max_dwell: 8.0
+    fallback: solo_idle
+    transitions:
+      - to: greet_ack
+        prior: 1.0
+        why: "试动作时被别人回应"
+        when:
+          all:
+            - {fact: recent.wave, within: 1.5, op: '==', value: true}
+            - {fact: nearest.distance, op: '<=', value: 3.0}
+      - to: solo_menu
+        prior: 0.8
+        why: "打开菜单调整"
+        when: {fact: self.menu_open, op: '==', value: true}
+
+  - id: solo_settle
+    name_zh: 独自停稳
+    family: solo
+    l1: 1
+    text: "我刚到达或刚结束互动，停下来整理站位和朝向，准备观察下一步。"
+    invariants: ["身体由移动转为静止"]
+    action: {intent: stand, target: none, gaze: scan, hand: none, heading: keep, speed_band: [0.0, 0.1]}
+    min_dwell: 0.8
+    max_dwell: 6.0
+    fallback: solo_idle
+    transitions:
+      - to: observe_near
+        prior: 1.0
+        why: "停稳后发现附近有人"
+        when:
+          all:
+            - {fact: nearest.distance, op: '<=', value: 4.0}
+            - {fact: nearest.visible, op: '==', value: true}
+      - to: converse_listen
+        prior: 1.2
+        why: "刚停稳就被搭话"
+        when: {fact: nearest.addressed_to_me, op: '==', value: true}
+
+  - id: solo_menu
+    name_zh: 菜单操作
+    family: solo
+    l1: 1
+    text: "我打开菜单或背包，身体基本静止，注意力在界面上，暂时不处理社交。"
+    invariants: ["菜单打开"]
+    action: {intent: stand, target: none, gaze: down, hand: none, heading: keep}
+    min_dwell: 0.5
+    max_dwell: 30.0
+    fallback: solo_idle
+    transitions:
+      - to: solo_idle
+        prior: 1.5
+        why: "关闭菜单"
+        when: {fact: self.menu_open, op: '==', value: false}
+      - to: walk_through
+        prior: 0.4
+        why: "关菜单后继续赶路"
+        when:
+          all:
+            - {fact: self.menu_open, op: '==', value: false}
+            - {fact: self.has_goal, op: '==', value: true}
+
+  - id: solo_leave
+    name_zh: 独自离场
+    family: solo
+    l1: 1
+    text: "我独自离开当前区域或房间，朝出口或传送点走，不准备再开启新对话。"
+    invariants: ["正在离开"]
+    action: {intent: walk_fwd, target: exit, gaze: path, hand: none, heading: path, speed_band: [0.8, 1.3]}
+    min_dwell: 0.8
+    max_dwell: 8.0
+    fallback: walk_through
+    transitions:
+      - to: walk_through
+        prior: 1.0
+        why: "离开动作已启动，转入穿行"
+        when: {fact: dwell, op: '>=', value: 1.0}
+      - to: reengage
+        prior: 0.5
+        why: "离开途中被叫住"
+        when:
+          all:
+            - {fact: recent.speak_other, within: 1.5, op: '==', value: true}
+            - {fact: nearest.addressed_to_me, op: '==', value: true}
+
+  - id: solo_recover
+    name_zh: 独自恢复
+    family: solo
+    l1: 1
+    text: "我跌倒或卡住后正在恢复站姿，先保证身体稳定，不进行社交。"
+    invariants: ["身体不稳定"]
+    action: {intent: stand, target: none, gaze: down, hand: none, heading: keep}
+    min_dwell: 0.5
+    max_dwell: 3.0
+    fallback: solo_idle
+    transitions:
+      - to: solo_idle
+        prior: 1.0
+        why: "恢复站姿"
+        when:
+          all:
+            - {fact: self.stuck, op: '==', value: false}
+            - {fact: dwell, op: '>=', value: 1.0}
+
+  # ------------------------------------------------------------- bystander
+  - id: observe_far
+    name_zh: 远处旁观
+    family: bystander
+    l1: 2
+    text: "我在四米外观察一群人，没有被他们注意到；先读清谁在说话、圈子的朝向和空隙。"
+    invariants: ["有他人", "没有双向交流"]
+    action: {intent: stand, target: group_center, gaze: speaker, hand: none, heading: face_target, distance_band: [4.0, 8.0]}
+    min_dwell: 1.5
+    max_dwell: 15.0
+    fallback: solo_idle
+    transitions:
+      - to: observe_near
+        prior: 1.2
+        why: "靠近到四米内观察"
+        when:
+          all:
+            - {fact: nearest.distance, op: '<', value: 4.0}
+            - {fact: nearest.visible, op: '==', value: true}
+      - to: wait_for_gap
+        prior: 0.8
+        why: "听到持续对话，开始等话轮空隙"
+        when:
+          all:
+            - {fact: audio.speech, op: '==', value: true}
+            - {fact: group.size, op: '>=', value: 2}
+      - to: solo_idle
+        prior: 1.0
+        why: "人离开或消失"
+        when: {fact: persons.count, op: '==', value: 0}
+      - to: orbit
+        prior: 0.9
+        why: "群体较大，沿边缘找加入位置"
+        when:
+          all:
+            - {fact: group.size, op: '>=', value: 3}
+            - {fact: dwell, op: '>=', value: 2.5}
+      - to: read_room
+        prior: 0.8
+        why: "先判断这个圈子是否欢迎新人"
+        when:
+          all:
+            - {fact: group.size, op: '>=', value: 3}
+            - {fact: group.cohesion, op: '>=', value: 0.6}
+
+  - id: observe_near
+    name_zh: 近处旁观
+    family: bystander
+    l1: 2
+    text: "我在两到四米处近距离旁观，站在群体边缘，还没有被邀请加入对话。"
+    invariants: ["有他人", "未参与对话"]
+    action: {intent: stand, target: group_center, gaze: speaker, hand: none, heading: face_target, distance_band: [2.0, 4.0]}
+    min_dwell: 1.5
+    max_dwell: 12.0
+    fallback: observe_far
+    transitions:
+      - to: listen_in
+        prior: 1.1
+        why: "进入能听清对话的范围"
+        when:
+          all:
+            - {fact: nearest.distance, op: '<', value: 3.0}
+            - {fact: audio.speech, op: '==', value: true}
+      - to: greet_ack
+        prior: 1.5
+        why: "对方朝我挥手"
+        when: {fact: recent.wave, within: 2.0, op: '==', value: true}
+      - to: approach_person
+        prior: 1.2
+        why: "对方明确面向我并搭话"
+        when:
+          all:
+            - {fact: nearest.facing_me, op: '>=', value: 0.3}
+            - {fact: nearest.addressed_to_me, op: '==', value: true}
+      - to: bystander_idle
+        prior: 0.5
+        why: "对话长时间停止"
+        when: {fact: audio.activity, op: '==', value: false}
+      - to: observe_avatar
+        prior: 0.6
+        why: "只是在看对方 avatar，不打算说话"
+        when:
+          all:
+            - {fact: group.size, op: '<=', value: 1}
+            - {fact: audio.speech, op: '==', value: false}
+      - to: observe_far
+        prior: 0.9
+        why: "对方离开"
+        when: {fact: recent.leave, within: 2.0, op: '==', value: true}
+
+  - id: listen_in
+    name_zh: 旁听
+    family: bystander
+    l1: 2
+    text: "我已经进入能听清对话的范围，安静旁听，不插话；注意话轮结束和是否被点名。"
+    invariants: ["有他人", "我在听但没有发言"]
+    action: {intent: stand, target: speaker, gaze: speaker, hand: none, heading: face_target, distance_band: [1.5, 3.5]}
+    min_dwell: 2.0
+    max_dwell: 20.0
+    fallback: observe_near
+    transitions:
+      - to: converse_listen
+        prior: 1.6
+        why: "双人对话中对方转向我"
+        when:
+          all:
+            - {fact: group.size, op: '<=', value: 2}
+            - {fact: nearest.addressed_to_me, op: '==', value: true}
+      - to: group_listen
+        prior: 1.4
+        why: "群体对话中被接纳为听众"
+        when:
+          all:
+            - {fact: group.size, op: '>=', value: 3}
+            - {fact: nearest.distance, op: '<=', value: 2.5}
+      - to: wait_for_gap
+        prior: 1.0
+        why: "我想说话，等待话轮空隙"
+        when:
+          all:
+            - {fact: audio.speech, op: '==', value: false}
+            - {fact: dwell, op: '>=', value: 4.0}
+      - to: observe_near
+        prior: 1.0
+        why: "说话人离开"
+        when: {fact: speaker.distance, op: '>', value: 4.0}
+
+  - id: orbit
+    name_zh: 绕行观察
+    family: bystander
+    l1: 2
+    text: "我沿着人群边缘缓慢移动，寻找能自然加入的位置，不直视太久也不挡住别人。"
+    invariants: ["在移动", "未加入对话"]
+    action: {intent: walk, target: group_center, gaze: scan, hand: none, heading: path, distance_band: [3.0, 5.0], speed_band: [0.2, 0.4]}
+    min_dwell: 2.0
+    max_dwell: 20.0
+    fallback: observe_far
+    transitions:
+      - to: join_circle
+        prior: 1.2
+        why: "找到群体空隙"
+        when:
+          all:
+            - {fact: group.size, op: '>=', value: 3}
+            - {fact: nearest.distance, op: '<=', value: 3.0}
+      - to: wait_for_gap
+        prior: 0.8
+        why: "靠得很近，先等话轮"
+        when: {fact: nearest.distance, op: '<=', value: 2.5}
+      - to: observe_far
+        prior: 0.8
+        why: "被人注意后先退回观察位"
+        when:
+          all:
+            - {fact: nearest.facing_me, op: '>=', value: 0.5}
+            - {fact: dwell, op: '>=', value: 3.0}
+
+  - id: wait_for_gap
+    name_zh: 等待空隙
+    family: bystander
+    l1: 2
+    text: "我停在对话边缘，等待对方说完或群体出现明显空隙，再决定是否加入。"
+    invariants: ["未发言", "在等话轮"]
+    action: {intent: stand, target: speaker, gaze: speaker, hand: none, heading: face_target}
+    min_dwell: 1.0
+    max_dwell: 8.0
+    fallback: observe_near
+    transitions:
+      - to: group_speak
+        prior: 1.1
+        why: "群体空隙出现且我被点名"
+        when:
+          all:
+            - {fact: group.size, op: '>=', value: 3}
+            - {fact: audio.speech, op: '==', value: false}
+            - {fact: nearest.addressed_to_me, op: '==', value: true}
+      - to: join_circle
+        prior: 1.0
+        why: "群体向我示意加入"
+        when:
+          all:
+            - {fact: recent.invitation, within: 3.0, op: '==', value: true}
+            - {fact: group.size, op: '>=', value: 2}
+      - to: greet_initiate
+        prior: 0.7
+        why: "对方单独面向我，改成直接问候"
+        when:
+          all:
+            - {fact: nearest.distance, op: '<=', value: 3.0}
+            - {fact: nearest.facing_me, op: '>=', value: 0.4}
+      - to: observe_near
+        prior: 0.8
+        why: "空隙没有出现"
+        when: {fact: dwell, op: '>=', value: 5.0}
+
+  - id: read_room
+    name_zh: 读氛围
+    family: bystander
+    l1: 2
+    text: "我停在群体边缘观察氛围：他们是熟人局、公开活动还是正在争执；先判断自己是否受欢迎。"
+    invariants: ["未参与", "观察中"]
+    action: {intent: stand, target: group_center, gaze: scan, hand: none, heading: face_target}
+    min_dwell: 1.5
+    max_dwell: 10.0
+    fallback: observe_near
+    transitions:
+      - to: wait_for_gap
+        prior: 1.0
+        why: "氛围友好，开始找开口机会"
+        when:
+          all:
+            - {fact: group.cohesion, op: '<=', value: 0.8}
+            - {fact: group.size, op: '>=', value: 2}
+      - to: observe_far
+        prior: 0.8
+        why: "圈子紧密且无人看我，退回远观"
+        when:
+          all:
+            - {fact: group.cohesion, op: '>=', value: 0.8}
+            - {fact: nearest.facing_me, op: '<', value: 0.2}
+      - to: join_circle
+        prior: 0.9
+        why: "收到邀请"
+        when: {fact: recent.invitation, within: 3.0, op: '==', value: true}
+
+  - id: observe_avatar
+    name_zh: 看 avatar
+    family: bystander
+    l1: 2
+    text: "我在看某个 avatar 的外观或动作，注意力集中在视觉上，还没有开始交流。"
+    invariants: ["未参与对话"]
+    action: {intent: stand, target: focus, gaze: target_face, hand: none, heading: face_target}
+    min_dwell: 1.0
+    max_dwell: 10.0
+    fallback: observe_near
+    transitions:
+      - to: greet_initiate
+        prior: 1.0
+        why: "对方回看我，可以打招呼"
+        when:
+          all:
+            - {fact: nearest.facing_me, op: '>=', value: 0.5}
+            - {fact: nearest.distance, op: '<=', value: 3.5}
+      - to: observe_near
+        prior: 0.8
+        why: "对方走开"
+        when: {fact: nearest.distance, op: '>', value: 4.0}
+
+  - id: bystander_idle
+    name_zh: 边缘待机
+    family: bystander
+    l1: 2
+    text: "我待在人群边缘，但没有把注意力放在对话上；身体放松，随时可以转向。"
+    invariants: ["有他人", "未参与"]
+    action: {intent: stand, target: none, gaze: scan, hand: none, heading: keep}
+    min_dwell: 2.0
+    max_dwell: 15.0
+    fallback: solo_idle
+    transitions:
+      - to: listen_in
+        prior: 1.1
+        why: "重新听到对话"
+        when: {fact: audio.speech, op: '==', value: true}
+      - to: observe_near
+        prior: 0.8
+        why: "有人靠近"
+        when: {fact: nearest.distance, op: '<=', value: 3.0}
+      - to: solo_idle
+        prior: 1.0
+        why: "人离开"
+        when: {fact: persons.count, op: '==', value: 0}
+
+  # ------------------------------------------------------------------ dyad
+  - id: approach_person
+    name_zh: 接近对方
+    family: dyad
+    l1: 3
+    text: "我选定一个人，沿着不冒犯的路线接近到社交距离；观察对方是否转身、后退或继续做事。"
+    invariants: ["有明确对象", "正在接近"]
+    action: {intent: walk, target: focus, gaze: target_face, hand: none, heading: face_target, distance_band: [0.45, 2.2], stop_radius: 0.45, speed_band: [0.3, 0.8]}
+    min_dwell: 0.8
+    max_dwell: 8.0
+    fallback: hold_distance
+    transitions:
+      - to: greet_initiate
+        prior: 1.6
+        why: "进入问候距离且对方面向我"
+        when:
+          all:
+            - {fact: focus.distance, op: '<=', value: 1.1}
+            - {fact: focus.facing_me, op: '>=', value: 0.2}
+      - to: converse_listen
+        prior: 1.4
+        why: "接近途中对方先开口"
+        when: {fact: focus.addressed_to_me, op: '==', value: true}
+      - to: hold_distance
+        prior: 1.0
+        why: "已到很近距离但对方没有反应"
+        when: {fact: focus.distance, op: '<=', value: 0.7}
+      - to: observe_near
+        prior: 0.8
+        why: "对方走开或在忙"
+        when:
+          all:
+            - {fact: focus.distance, op: '>', value: 3.5}
+            - {fact: focus.facing_me, op: '<', value: 0.1}
+
+  - id: greet_initiate
+    name_zh: 主动问候
+    family: dyad
+    l1: 3
+    text: "我向对方挥手或点头并开口问候，动作短、幅度小，给对方留出回应空间。"
+    invariants: ["面向对象", "刚发起问候"]
+    action: {intent: wave, target: focus, gaze: target_face, hand: wave, heading: face_target, hold_s: 1.2, speed_band: [0.0, 0.1]}
+    min_dwell: 0.5
+    max_dwell: 2.0
+    fallback: greet_wait_reply
+    transitions:
+      - to: greet_wait_reply
+        prior: 2.0
+        why: "问候动作完成，停住等回应"
+        when: {fact: dwell, op: '>=', value: 1.0}
+      - to: greet_ack
+        prior: 1.2
+        why: "对方同步回礼"
+        when: {fact: recent.wave, within: 1.5, op: '==', value: true}
+      - to: converse_listen
+        prior: 1.5
+        why: "对方直接开口"
+        when: {fact: recent.speak_other, within: 1.5, op: '==', value: true}
+
+  - id: greet_wait_reply
+    name_zh: 等待回应
+    family: dyad
+    l1: 3
+    text: "我停在原地，保持注视和微笑，等待对方回应问候；不继续靠近，也不马上离开。"
+    invariants: ["等待回应"]
+    action: {intent: stand, target: focus, gaze: target_face, hand: none, heading: face_target, hold_s: 1.0}
+    min_dwell: 0.8
+    max_dwell: 6.0
+    fallback: disengage
+    transitions:
+      - to: greet_ack
+        prior: 1.5
+        why: "对方回礼"
+        when:
+          any:
+            - {fact: recent.wave, within: 2.0, op: '==', value: true}
+            - {fact: recent.nod, within: 2.0, op: '==', value: true}
+      - to: converse_listen
+        prior: 1.8
+        why: "对方开口"
+        when: {fact: recent.speak_other, within: 2.0, op: '==', value: true}
+      - to: hold_distance
+        prior: 0.8
+        why: "没有回应但对方仍在"
+        when: {fact: dwell, op: '>=', value: 4.0}
+      - to: disengage
+        prior: 1.0
+        why: "长时间没有回应"
+        when: {fact: dwell, op: '>=', value: 6.0}
+
+  - id: greet_ack
+    name_zh: 回应问候
+    family: dyad
+    l1: 3
+    text: "我回应对方的问候：挥手、点头或简短出声，然后把注意力交给对方的下一个动作。"
+    invariants: ["刚回应问候"]
+    action: {intent: wave, target: focus, gaze: target_face, hand: wave, heading: face_target, hold_s: 1.0}
+    min_dwell: 0.5
+    max_dwell: 3.0
+    fallback: hold_distance
+    transitions:
+      - to: converse_listen
+        prior: 1.6
+        why: "对方开始说话"
+        when: {fact: recent.speak_other, within: 2.0, op: '==', value: true}
+      - to: hold_distance
+        prior: 1.0
+        why: "回礼完成，保持距离"
+        when: {fact: dwell, op: '>=', value: 1.5}
+      - to: solo_settle
+        prior: 0.8
+        why: "对方离开"
+        when: {fact: focus.distance, op: '>', value: 4.0}
+
+  - id: converse_listen
+    name_zh: 一对一倾听
+    family: dyad
+    l1: 3
+    text: "一对一对话中我听对方说话，保持适度注视和点头，不抢话轮；在对方说完后决定是否接话。"
+    invariants: ["一对一", "对方持有话轮"]
+    action: {intent: stand, target: focus, gaze: target_face, hand: none, heading: face_target, distance_band: [0.45, 1.6], hold_s: 0.5}
+    min_dwell: 0.8
+    max_dwell: 120.0
+    fallback: disengage
+    transitions:
+      - to: converse_speak
+        prior: 1.5
+        why: "话轮空出且我想接话"
+        when:
+          all:
+            - {fact: audio.speech, op: '==', value: false}
+            - {fact: focus.addressed_to_me, op: '==', value: true}
+            - {fact: dwell, op: '>=', value: 0.8}
+      - to: converse_speak
+        prior: 2.2
+        why: "学习型 turn gate 判定该我接话"
+        when:
+          all:
+            - {fact: gate.speak, op: '>=', value: 0.5}
+            - {fact: audio.speech, op: '==', value: false}
+            - {fact: dwell, op: '>=', value: 0.5}
+      - to: backchannel
+        prior: 0.9
+        why: "对方停顿，给一个短回应"
+        when:
+          all:
+            - {fact: recent.speak_other, within: 1.0, op: '==', value: true}
+            - {fact: audio.speech, op: '==', value: false}
+      - to: follow_person
+        prior: 0.6
+        why: "对方边走边说"
+        when:
+          all:
+            - {fact: focus.moving, op: '==', value: true}
+            - {fact: focus.distance, op: '>=', value: 2.5}
+      - to: disengage
+        prior: 1.2
+        why: "对话结束"
+        when: {fact: recent.conversation_end, within: 2.0, op: '==', value: true}
+      - to: hold_distance
+        prior: 1.2
+        why: "我刚拒绝一次推进，保持距离"
+        when: {fact: recent.rejection, within: 2.0, op: '==', value: true}
+      - to: hold_distance
+        prior: 1.3
+        why: "情绪焦虑/尴尬，先保持距离"
+        when:
+          all:
+            - {fact: emotion.label, op: 'in', value: [anxious, embarrassed]}
+            - {fact: emotion.comfort, op: '<', value: 0.45}
+      - to: headpat_receive
+        prior: 0.9
+        why: "对方示意摸头且已同意，接受"
+        when:
+          all:
+            - {fact: recent.headpat_offer, within: 2.0, op: '==', value: true}
+            - {fact: consent.state, op: '==', value: granted}
+      - to: proactive_open
+        prior: 1.0
+        why: "相互兴趣达标且无拒绝记录，主动开启攻略"
+        when:
+          all:
+            - {fact: initiative.ready, op: '==', value: true}
+            - {fact: relationship.stage, op: 'in', value: [friend, close, intimate]}
+            - {fact: initiative.rejection_count, op: '==', value: 0}
+            - {fact: emotion.valence, op: '>=', value: -0.15}
+            - {fact: emotion.comfort, op: '>=', value: 0.40}
+      - to: flirt_signal
+        prior: 0.8
+        why: "对方释放亲密/玩笑信号，进入试探"
+        when:
+          all:
+            - {fact: relationship.stage, op: 'in', value: [friend, close, intimate]}
+            - {fact: recent.flirt, within: 3.0, op: '==', value: true}
+      - to: share_attention
+        prior: 0.8
+        why: "我们一起看向同一个东西"
+        when: {fact: recent.shared_attention, within: 2.0, op: '==', value: true}
+      - to: group_listen
+        prior: 0.9
+        why: "第三人加入对话"
+        when:
+          all:
+            - {fact: recent.third_speak, within: 2.0, op: '==', value: true}
+            - {fact: group.size, op: '>=', value: 3}
+
+  - id: converse_speak
+    name_zh: 一对一发言
+    family: dyad
+    l1: 3
+    text: "一对一对话中我在说话，面向对方，用手势辅助但幅度有限；观察对方是否点头或准备插话。"
+    invariants: ["一对一", "我持有话轮"]
+    action: {intent: stand, target: focus, gaze: target_face, hand: none, heading: face_target, speech_act: answer}
+    min_dwell: 0.8
+    max_dwell: 15.0
+    fallback: converse_listen
+    transitions:
+      - to: converse_listen
+        prior: 1.8
+        why: "我说完，把话轮交回"
+        when:
+          all:
+            - {fact: audio.speech, op: '==', value: false}
+            - {fact: dwell, op: '>=', value: 1.5}
+      - to: backchannel
+        prior: 0.7
+        why: "对方插话"
+        when: {fact: recent.speak_other, within: 1.0, op: '==', value: true}
+      - to: group_speak
+        prior: 0.5
+        why: "第三人加入，升级为群体发言"
+        when: {fact: group.size, op: '>=', value: 3}
+      - to: disengage
+        prior: 0.8
+        why: "对方明确结束"
+        when: {fact: recent.conversation_end, within: 2.0, op: '==', value: true}
+
+  - id: backchannel
+    name_zh: 短回应
+    family: dyad
+    l1: 3
+    text: "我用点头、短音或一个简单手势回应对方，表明我在听，但不接管话轮。"
+    invariants: ["不持有话轮"]
+    action: {intent: stand, target: focus, gaze: target_face, hand: none, heading: face_target, hold_s: 0.5, speech_act: backchannel}
+    min_dwell: 0.3
+    max_dwell: 2.0
+    fallback: converse_listen
+    transitions:
+      - to: converse_listen
+        prior: 2.0
+        why: "短回应完成，继续听"
+        when: {fact: dwell, op: '>=', value: 0.6}
+      - to: converse_speak
+        prior: 1.0
+        why: "对方把话轮交给我"
+        when: {fact: focus.addressed_to_me, op: '==', value: true}
+
+  - id: hold_distance
+    name_zh: 保持距离
+    family: dyad
+    l1: 3
+    text: "我和对方保持一到两米的社交距离，不继续靠近，也不离开；等待对方给出下一步信号。"
+    invariants: ["有对象", "不推进"]
+    action: {intent: stand, target: focus, gaze: target_face, hand: none, heading: face_target, distance_band: [0.45, 1.5]}
+    min_dwell: 1.0
+    max_dwell: 12.0
+    fallback: disengage
+    transitions:
+      - to: converse_listen
+        prior: 1.4
+        why: "对方开口"
+        when: {fact: recent.speak_other, within: 2.0, op: '==', value: true}
+      - to: follow_person
+        prior: 0.7
+        why: "对方移动"
+        when:
+          all:
+            - {fact: focus.moving, op: '==', value: true}
+            - {fact: focus.distance, op: '>=', value: 2.5}
+      - to: proactive_open
+        prior: 0.9
+        why: "相互兴趣达标且无拒绝记录，主动开启攻略"
+        when:
+          all:
+            - {fact: initiative.ready, op: '==', value: true}
+            - {fact: relationship.stage, op: 'in', value: [friend, close, intimate]}
+            - {fact: initiative.rejection_count, op: '==', value: 0}
+            - {fact: emotion.valence, op: '>=', value: -0.15}
+            - {fact: emotion.comfort, op: '>=', value: 0.40}
+      - to: flirt_signal
+        prior: 0.7
+        why: "对方释放亲密信号"
+        when:
+          all:
+            - {fact: relationship.stage, op: 'in', value: [close, intimate]}
+            - {fact: recent.flirt, within: 3.0, op: '==', value: true}
+      - to: headpat_receive
+        prior: 0.8
+        why: "对方示意摸头且我已同意"
+        when:
+          all:
+            - {fact: recent.headpat_offer, within: 2.0, op: '==', value: true}
+            - {fact: consent.state, op: '==', value: granted}
+      - to: caress_receive
+        prior: 0.8
+        why: "对方示意轻抚且我已同意"
+        when:
+          all:
+            - {fact: recent.caress_offer, within: 2.0, op: '==', value: true}
+            - {fact: consent.state, op: '==', value: granted}
+      - to: disengage
+        prior: 1.2
+        why: "长时间没有互动"
+        when:
+          all:
+            - {fact: audio.activity, op: '==', value: false}
+            - {fact: dwell, op: '>=', value: 8.0}
+
+  - id: follow_person
+    name_zh: 跟随
+    family: dyad
+    l1: 3
+    text: "我跟着对方走，维持一点五到两点五米，不挡路也不掉队；对方停下时我也停。"
+    invariants: ["有对象", "在移动"]
+    action: {intent: walk, target: focus, gaze: target_face, hand: none, heading: face_target, distance_band: [1.5, 2.5], stop_radius: 1.5, speed_band: [0.3, 0.9]}
+    min_dwell: 1.0
+    max_dwell: 30.0
+    fallback: hold_distance
+    transitions:
+      - to: converse_listen
+        prior: 1.2
+        why: "对方停下并开口"
+        when:
+          all:
+            - {fact: focus.moving, op: '==', value: false}
+            - {fact: recent.speak_other, within: 2.0, op: '==', value: true}
+      - to: hold_distance
+        prior: 1.0
+        why: "对方停下"
+        when: {fact: focus.moving, op: '==', value: false}
+      - to: lost_target
+        prior: 2.0
+        why: "目标不可见"
+        when: {fact: focus.visible, op: '==', value: false}
+      - to: guide_person
+        prior: 0.8
+        why: "我有明确目的地，改为在前面带路"
+        when:
+          all:
+            - {fact: self.has_goal, op: '==', value: true}
+            - {fact: focus.bearing, op: '>=', value: 60.0}
+
+  - id: guide_person
+    name_zh: 带路
+    family: dyad
+    l1: 3
+    text: "我走在前面带路，偶尔回头确认对方跟上；保持可见，不做大幅动作。"
+    invariants: ["我领先", "有明确目的地"]
+    action: {intent: walk_fwd, target: path, gaze: scan, hand: none, heading: path, speed_band: [0.4, 0.8]}
+    min_dwell: 1.0
+    max_dwell: 20.0
+    fallback: hold_distance
+    transitions:
+      - to: converse_listen
+        prior: 1.3
+        why: "到达目的地后转身对话"
+        when: {fact: self.at_goal, op: '==', value: true}
+      - to: follow_person
+        prior: 0.6
+        why: "对方走到我前面"
+        when: {fact: focus.distance, op: '<=', value: 1.2}
+
+  - id: share_attention
+    name_zh: 共同关注
+    family: dyad
+    l1: 3
+    text: "我和对方一起看同一个物体、avatar 或事件，短暂共享注意力，不必说话。"
+    invariants: ["有对象", "注意力同向"]
+    action: {intent: stand, target: focus, gaze: shared, hand: none, heading: face_target}
+    min_dwell: 1.0
+    max_dwell: 10.0
+    fallback: converse_listen
+    transitions:
+      - to: converse_listen
+        prior: 1.2
+        why: "对方转头说话"
+        when: {fact: recent.speak_other, within: 2.0, op: '==', value: true}
+      - to: observe_avatar
+        prior: 0.5
+        why: "对方注意力移开"
+        when: {fact: focus.facing_me, op: '<', value: 0.0}
+
+  - id: repair_misstep
+    name_zh: 修复失礼
+    family: dyad
+    l1: 3
+    text: "我撞到、打断或冒犯了对方，先后退半步并道歉，给对方空间，不继续解释太多。"
+    invariants: ["刚发生失礼", "降低存在感"]
+    action: {intent: stand, target: focus, gaze: down, hand: none, heading: face_target, speech_act: repair, hold_s: 1.0}
+    min_dwell: 0.5
+    max_dwell: 3.0
+    fallback: hold_distance
+    transitions:
+      - to: hold_distance
+        prior: 1.4
+        why: "道歉完成，恢复距离"
+        when: {fact: dwell, op: '>=', value: 1.2}
+      - to: converse_listen
+        prior: 1.0
+        why: "对方接受并继续对话"
+        when: {fact: recent.speak_other, within: 2.0, op: '==', value: true}
+      - to: disengage
+        prior: 0.6
+        why: "对方明显退开"
+        when: {fact: focus.distance, op: '>', value: 3.0}
+
+  - id: disengage
+    name_zh: 结束对话
+    family: dyad
+    l1: 3
+    text: "我给出一句收尾话并后退半步，明确结束这段对话，不突然消失，也不拖着不走。"
+    invariants: ["结束中"]
+    action: {intent: stand, target: focus, gaze: target_face, hand: none, heading: face_target, speech_act: farewell, hold_s: 0.8}
+    min_dwell: 0.5
+    max_dwell: 4.0
+    fallback: solo_settle
+    transitions:
+      - to: part_farewell
+        prior: 1.2
+        why: "补一个道别动作"
+        when: {fact: dwell, op: '>=', value: 0.6}
+      - to: reengage
+        prior: 0.8
+        why: "对方挽留"
+        when: {fact: recent.speak_other, within: 1.5, op: '==', value: true}
+      - to: solo_settle
+        prior: 1.0
+        why: "收尾完成"
+        when: {fact: dwell, op: '>=', value: 1.5}
+
+  - id: part_farewell
+    name_zh: 道别
+    family: dyad
+    l1: 3
+    text: "我挥手或点头道别，然后转身离开；不再开启新话题。"
+    invariants: ["道别中"]
+    action: {intent: wave, target: focus, gaze: target_face, hand: wave, heading: face_target, hold_s: 1.0}
+    min_dwell: 0.5
+    max_dwell: 3.0
+    fallback: solo_leave
+    transitions:
+      - to: solo_leave
+        prior: 1.8
+        why: "道别完成，离开"
+        when: {fact: dwell, op: '>=', value: 1.0}
+      - to: reengage
+        prior: 0.7
+        why: "对方又叫住我"
+        when: {fact: recent.speak_other, within: 1.5, op: '==', value: true}
+
+  - id: reengage
+    name_zh: 重新搭话
+    family: dyad
+    l1: 3
+    text: "我离开后又回来重新搭话，先确认对方是否愿意继续，不直接贴近。"
+    invariants: ["重新接近"]
+    action: {intent: walk, target: focus, gaze: target_face, hand: none, heading: face_target, distance_band: [1.2, 2.2], speed_band: [0.2, 0.6]}
+    min_dwell: 0.8
+    max_dwell: 5.0
+    fallback: hold_distance
+    transitions:
+      - to: greet_initiate
+        prior: 1.2
+        why: "回到问候距离"
+        when: {fact: focus.distance, op: '<=', value: 2.2}
+      - to: converse_listen
+        prior: 1.0
+        why: "对方直接继续话题"
+        when: {fact: focus.addressed_to_me, op: '==', value: true}
+
+  # ----------------------------------------------------------------- group
+  - id: join_circle
+    name_zh: 加入圈子
+    family: group
+    l1: 4
+    text: "我走向一个群体并加入他们的圆圈，先站到空隙处，保持与两边的人相同距离。"
+    invariants: ["群体>=3", "正在加入"]
+    action: {intent: walk, target: group_center, gaze: speaker, hand: none, heading: face_target, distance_band: [1.2, 2.5], stop_radius: 1.2, speed_band: [0.2, 0.6]}
+    min_dwell: 1.0
+    max_dwell: 6.0
+    fallback: group_listen
+    transitions:
+      - to: group_listen
+        prior: 1.8
+        why: "已进入圈子"
+        when:
+          all:
+            - {fact: group.size, op: '>=', value: 3}
+            - {fact: nearest.distance, op: '<=', value: 2.5}
+      - to: group_speak
+        prior: 0.8
+        why: "刚加入就被点名"
+        when: {fact: nearest.addressed_to_me, op: '==', value: true}
+      - to: observe_near
+        prior: 0.7
+        why: "圈子没有让出位置"
+        when: {fact: dwell, op: '>=', value: 5.0}
+
+  - id: group_listen
+    name_zh: 群体倾听
+    family: group
+    l1: 4
+    text: "我在群体里听主要说话人，跟随大家的视线，保持圆圈；不抢话，也不完全沉默。"
+    invariants: ["群体>=3", "我未持有话轮"]
+    action: {intent: stand, target: speaker, gaze: speaker, hand: none, heading: face_target, distance_band: [1.2, 2.5]}
+    min_dwell: 1.0
+    max_dwell: 60.0
+    fallback: group_leave
+    transitions:
+      - to: group_speak
+        prior: 1.2
+        why: "被点名或话轮空出"
+        when:
+          any:
+            - {fact: nearest.addressed_to_me, op: '==', value: true}
+            - {fact: recent.invitation, within: 2.0, op: '==', value: true}
+      - to: group_backchannel
+        prior: 1.0
+        why: "主要说话人停顿"
+        when:
+          all:
+            - {fact: audio.speech, op: '==', value: false}
+            - {fact: recent.speak_other, within: 1.5, op: '==', value: true}
+      - to: group_side_talk
+        prior: 0.8
+        why: "旁边的邻人转向我"
+        when:
+          all:
+            - {fact: nearest.distance, op: '<=', value: 1.8}
+            - {fact: nearest.facing_me, op: '>=', value: 0.4}
+      - to: circle_adjust
+        prior: 0.7
+        why: "站位过近或过远"
+        when:
+          any:
+            - {fact: nearest.distance, op: '<', value: 0.8}
+            - {fact: nearest.distance, op: '>', value: 3.2}
+      - to: group_leave
+        prior: 1.8
+        why: "情绪过载/关闭，先离开群体"
+        when:
+          any:
+            - {fact: emotion.label, op: 'in', value: [overwhelmed, shutdown]}
+            - {fact: emotion.comfort, op: '<', value: 0.35}
+      - to: group_leave
+        prior: 0.5
+        why: "被排除在对话外很久"
+        when: {fact: dwell, op: '>=', value: 45.0}
+
+  - id: group_speak
+    name_zh: 群体发言
+    family: group
+    l1: 4
+    text: "我在群体里发言，面向主要听众，音量足够但不盖过别人；说完把话轮交回。"
+    invariants: ["群体>=3", "我持有话轮"]
+    action: {intent: stand, target: speaker, gaze: speaker, hand: none, heading: face_target, speech_act: answer}
+    min_dwell: 0.8
+    max_dwell: 10.0
+    fallback: group_listen
+    transitions:
+      - to: group_listen
+        prior: 1.8
+        why: "发言结束"
+        when:
+          all:
+            - {fact: audio.speech, op: '==', value: false}
+            - {fact: dwell, op: '>=', value: 1.5}
+      - to: group_backchannel
+        prior: 0.7
+        why: "被别人接话"
+        when: {fact: recent.speak_other, within: 1.0, op: '==', value: true}
+      - to: group_side_talk
+        prior: 0.5
+        why: "旁边的人单独问我"
+        when:
+          all:
+            - {fact: nearest.distance, op: '<=', value: 1.8}
+            - {fact: nearest.addressed_to_me, op: '==', value: true}
+
+  - id: group_backchannel
+    name_zh: 群体短回应
+    family: group
+    l1: 4
+    text: "我在群体里用点头、笑或短音回应，不接管话轮，保持圈子的节奏。"
+    invariants: ["群体>=3", "不持有话轮"]
+    action: {intent: stand, target: speaker, gaze: speaker, hand: none, heading: face_target, hold_s: 0.4, speech_act: backchannel}
+    min_dwell: 0.3
+    max_dwell: 2.0
+    fallback: group_listen
+    transitions:
+      - to: group_listen
+        prior: 2.0
+        why: "短回应完成"
+        when: {fact: dwell, op: '>=', value: 0.6}
+      - to: group_speak
+        prior: 0.9
+        why: "被点名接话"
+        when: {fact: nearest.addressed_to_me, op: '==', value: true}
+
+  - id: group_side_talk
+    name_zh: 群体侧聊
+    family: group
+    l1: 4
+    text: "我在群体里和旁边一个人低声交谈，身体稍微转开但仍留在圈子里，不打断主说话人。"
+    invariants: ["群体>=3", "侧向交流"]
+    action: {intent: stand, target: focus, gaze: target_face, hand: none, heading: face_target, distance_band: [1.0, 1.8]}
+    min_dwell: 1.0
+    max_dwell: 15.0
+    fallback: group_listen
+    transitions:
+      - to: group_listen
+        prior: 1.2
+        why: "主说话人重新吸引注意"
+        when: {fact: audio.speech, op: '==', value: true}
+      - to: converse_listen
+        prior: 0.8
+        why: "邻人把我带出圈子单独聊"
+        when:
+          all:
+            - {fact: focus.distance, op: '>=', value: 2.0}
+            - {fact: focus.addressed_to_me, op: '==', value: true}
+      - to: group_leave
+        prior: 1.8
+        why: "情绪过载，先退出群体"
+        when:
+          any:
+            - {fact: emotion.label, op: 'in', value: [overwhelmed, shutdown]}
+            - {fact: emotion.comfort, op: '<', value: 0.35}
+      - to: group_leave
+        prior: 0.5
+        why: "侧聊结束且被排除"
+        when: {fact: dwell, op: '>=', value: 12.0}
+
+  - id: circle_adjust
+    name_zh: 调整站位
+    family: group
+    l1: 4
+    text: "我小步调整站位，回到圆圈上，避免背对别人、挡住别人或挤到别人。"
+    invariants: ["群体>=3", "微调位置"]
+    action: {intent: walk, target: group_center, gaze: speaker, hand: none, heading: face_target, speed_band: [0.1, 0.3]}
+    min_dwell: 0.5
+    max_dwell: 3.0
+    fallback: group_listen
+    transitions:
+      - to: group_listen
+        prior: 1.6
+        why: "站位恢复"
+        when:
+          all:
+            - {fact: nearest.distance, op: '>=', value: 1.2}
+            - {fact: nearest.distance, op: '<=', value: 2.5}
+      - to: group_defend_space
+        prior: 1.0
+        why: "仍被挤"
+        when: {fact: nearest.distance, op: '<', value: 0.7}
+
+  - id: group_leave
+    name_zh: 退出群体
+    family: group
+    l1: 4
+    text: "我从群体中退出，先后退半步再转身，不突然打断别人；离开后回到独处或穿行。"
+    invariants: ["退出中"]
+    action: {intent: walk, target: exit, gaze: path, hand: none, heading: path, speed_band: [0.4, 0.9]}
+    min_dwell: 0.8
+    max_dwell: 4.0
+    fallback: solo_settle
+    transitions:
+      - to: solo_settle
+        prior: 1.2
+        why: "退出完成"
+        when: {fact: dwell, op: '>=', value: 1.2}
+      - to: group_listen
+        prior: 0.7
+        why: "被重新邀请"
+        when: {fact: recent.invitation, within: 2.0, op: '==', value: true}
+
+  - id: group_defend_space
+    name_zh: 群体护空间
+    family: group
+    l1: 4
+    text: "群体太挤，我半退一步保护个人空间，同时保持面向圈子，避免显得被排斥。"
+    invariants: ["群体>=3", "空间受侵"]
+    action: {intent: stand, target: group_center, gaze: speaker, hand: none, heading: face_target, distance_band: [0.9, 1.5]}
+    min_dwell: 1.0
+    max_dwell: 6.0
+    fallback: group_leave
+    transitions:
+      - to: group_listen
+        prior: 1.2
+        why: "空间恢复"
+        when: {fact: nearest.distance, op: '>=', value: 0.9}
+      - to: group_leave
+        prior: 0.8
+        why: "拥挤持续"
+        when: {fact: dwell, op: '>=', value: 5.0}
+
+  # ---------------------------------------------------------------- transit
+  - id: walk_through
+    name_zh: 穿行
+    family: transit
+    l1: 5
+    text: "我穿过场所，不主动互动；注意力在路线、门口和迎面来的人上。"
+    invariants: ["在移动", "无对话"]
+    action: {intent: walk, target: path, gaze: path, hand: none, heading: path, speed_band: [0.6, 1.2]}
+    min_dwell: 1.0
+    max_dwell: 30.0
+    fallback: solo_travel
+    transitions:
+      - to: yield_path
+        prior: 1.4
+        why: "有人迎面进入路线"
+        when:
+          all:
+            - {fact: nearest.distance, op: '<=', value: 1.5}
+            - {fact: nearest.facing_me, op: '>=', value: 0.4}
+      - to: avoid_person
+        prior: 1.1
+        why: "前方两米内有人"
+        when: {fact: nearest.distance, op: '<=', value: 2.0}
+      - to: observe_near
+        prior: 0.9
+        why: "附近有人且正在说话，停下来旁观"
+        when:
+          all:
+            - {fact: nearest.distance, op: '<=', value: 4.0}
+            - {fact: audio.speech, op: '==', value: true}
+            - {fact: dwell, op: '>=', value: 1.5}
+      - to: observe_far
+        prior: 0.5
+        why: "有可观察的人群，放慢脚步"
+        when:
+          all:
+            - {fact: persons.count, op: '>=', value: 1}
+            - {fact: nearest.distance, op: '<=', value: 6.0}
+            - {fact: audio.activity, op: '==', value: true}
+      - to: door_wait
+        prior: 1.0
+        why: "到达门口或传送点且被占用"
+        when:
+          all:
+            - {fact: self.at_goal, op: '==', value: true}
+            - {fact: nearest.distance, op: '<=', value: 1.5}
+      - to: crowd_navigate
+        prior: 0.8
+        why: "人群密度高"
+        when: {fact: scene.crowd, op: '>=', value: 0.6}
+      - to: solo_settle
+        prior: 1.2
+        why: "到达目的地且前方无人"
+        when:
+          all:
+            - {fact: self.at_goal, op: '==', value: true}
+            - {fact: nearest.distance, op: '>', value: 2.0}
+
+  - id: yield_path
+    name_zh: 让路
+    family: transit
+    l1: 5
+    text: "我侧身或停半步，把通道让给迎面的人；不突然横移，也不贴到别人身上。"
+    invariants: ["让路中"]
+    action: {intent: stand, target: none, gaze: target_face, hand: none, heading: keep, distance_band: [0.8, 1.5]}
+    min_dwell: 0.5
+    max_dwell: 2.0
+    fallback: walk_through
+    transitions:
+      - to: walk_through
+        prior: 1.6
+        why: "对方通过"
+        when: {fact: nearest.distance, op: '>', value: 1.8}
+      - to: avoid_person
+        prior: 0.7
+        why: "仍然被挡"
+        when: {fact: nearest.distance, op: '<=', value: 1.0}
+
+  - id: avoid_person
+    name_zh: 绕开
+    family: transit
+    l1: 5
+    text: "我绕开前方的人，保持一点横向间距，不直视也不突然加速。"
+    invariants: ["在移动", "避让"]
+    action: {intent: walk, target: path, gaze: path, hand: none, heading: path, speed_band: [0.3, 0.8]}
+    min_dwell: 0.5
+    max_dwell: 3.0
+    fallback: walk_through
+    transitions:
+      - to: walk_through
+        prior: 1.4
+        why: "绕开完成"
+        when: {fact: nearest.distance, op: '>', value: 2.0}
+      - to: yield_path
+        prior: 0.8
+        why: "通道太窄"
+        when:
+          all:
+            - {fact: scene.crowd, op: '>=', value: 0.7}
+            - {fact: nearest.distance, op: '<=', value: 1.2}
+
+  - id: door_wait
+    name_zh: 门口等待
+    family: transit
+    l1: 5
+    text: "我在门口或传送点前等待，不挤进正在使用的人；轮到我时再前进。"
+    invariants: ["在等待", "未进入交互"]
+    action: {intent: stand, target: none, gaze: target_face, hand: none, heading: face_target}
+    min_dwell: 1.0
+    max_dwell: 10.0
+    fallback: walk_through
+    transitions:
+      - to: walk_through
+        prior: 1.3
+        why: "门口空出"
+        when: {fact: nearest.distance, op: '>', value: 1.5}
+      - to: queue_wait
+        prior: 0.8
+        why: "出现排队"
+        when: {fact: persons.count, op: '>=', value: 3}
+
+  - id: crowd_navigate
+    name_zh: 人群穿行
+    family: transit
+    l1: 5
+    text: "我在人群中低速穿行，提前减速，避免碰撞；不插入别人的对话。"
+    invariants: ["在移动", "人群密集"]
+    action: {intent: walk, target: path, gaze: path, hand: none, heading: path, speed_band: [0.2, 0.6]}
+    min_dwell: 1.0
+    max_dwell: 20.0
+    fallback: walk_through
+    transitions:
+      - to: walk_through
+        prior: 1.0
+        why: "走出人群"
+        when: {fact: scene.crowd, op: '<', value: 0.4}
+      - to: yield_path
+        prior: 1.0
+        why: "近距离有人"
+        when: {fact: nearest.distance, op: '<=', value: 1.2}
+      - to: avoid_person
+        prior: 0.8
+        why: "前方被挡"
+        when: {fact: nearest.distance, op: '<=', value: 1.8}
+
+  - id: queue_wait
+    name_zh: 排队等待
+    family: transit
+    l1: 5
+    text: "我排队等待交互物或传送点，保持前后间距，不插队也不贴太近。"
+    invariants: ["在等待", "有队列"]
+    action: {intent: stand, target: none, gaze: path, hand: none, heading: face_target}
+    min_dwell: 1.0
+    max_dwell: 30.0
+    fallback: walk_through
+    transitions:
+      - to: walk_through
+        prior: 1.2
+        why: "轮到我或队列散开"
+        when: {fact: nearest.distance, op: '>', value: 1.5}
+      - to: door_wait
+        prior: 0.7
+        why: "前方是门口"
+        when: {fact: self.at_goal, op: '==', value: true}
+
+  - id: path_blocked
+    name_zh: 路径受阻
+    family: transit
+    l1: 5
+    text: "路线被挡，我停下来重新规划，不硬挤也不原地转圈。"
+    invariants: ["停止", "重新规划"]
+    action: {intent: stand, target: none, gaze: scan, hand: none, heading: keep}
+    min_dwell: 0.5
+    max_dwell: 3.0
+    fallback: walk_through
+    transitions:
+      - to: avoid_person
+        prior: 1.3
+        why: "找到绕行方向"
+        when: {fact: nearest.distance, op: '<=', value: 2.0}
+      - to: yield_path
+        prior: 1.0
+        why: "只能侧身通过"
+        when: {fact: nearest.distance, op: '<=', value: 1.2}
+      - to: walk_through
+        prior: 0.8
+        why: "路径清空"
+        when: {fact: nearest.distance, op: '>', value: 2.0}
+
+  # --------------------------------------------------------------- courtship
+  # 主动但不施压：只有在相互注视/回应/舒适度达标、且没有拒绝记录时，
+  # 才允许把话题推进一小步。任何拒绝都结束本轮攻略，不做反复试探。
+  - id: proactive_open
+    name_zh: 主动开启攻略
+    family: dyad
+    l1: 3
+    text: "我判断双方有相互兴趣，主动把话题从寒暄推进一小步；先给一个低风险信号，不直接触碰。"
+    invariants: ["无拒绝记录", "不直接触碰"]
+    tags: [courtship, consent]
+    action: {intent: stand, target: focus, gaze: target_face, hand: none, heading: face_target, distance_band: [1.0, 1.6], speech_act: compliment, hold_s: 1.0}
+    min_dwell: 0.8
+    max_dwell: 3.0
+    fallback: converse_listen
+    transitions:
+      - to: compliment
+        prior: 1.4
+        why: "最低风险：先给一个具体夸奖"
+        when: {fact: initiative.move, op: '==', value: compliment}
+      - to: self_disclose
+        prior: 1.3
+        why: "对方已有回应，分享一点自己"
+        when: {fact: initiative.move, op: '==', value: self_disclose}
+      - to: invite_activity
+        prior: 1.2
+        why: "邀请一起做低压力的事"
+        when: {fact: initiative.move, op: '==', value: invite}
+      - to: flirt_signal
+        prior: 1.2
+        why: "关系较近且有相互注视，进入轻度暧昧"
+        when: {fact: initiative.move, op: '==', value: flirt}
+      - to: converse_listen
+        prior: 1.5
+        why: "对方没有回应或出现拒绝信号，退回普通对话"
+        when:
+          any:
+            - {fact: recent.rejection, within: 2.0, op: '==', value: true}
+            - {fact: initiative.score, op: '<', value: 0.35}
+
+  - id: compliment
+    name_zh: 具体夸奖
+    family: dyad
+    l1: 3
+    text: "我夸对方具体的东西（穿搭、动作、想法），不评价敏感身体部位；看对方是否接话、是否回问。"
+    invariants: ["不触碰", "不评价身体敏感部位"]
+    tags: [courtship, consent]
+    action: {intent: stand, target: focus, gaze: target_face, hand: none, heading: face_target, distance_band: [1.0, 1.6], speech_act: compliment, hold_s: 1.2}
+    min_dwell: 0.8
+    max_dwell: 4.0
+    fallback: converse_listen
+    transitions:
+      - to: self_disclose
+        prior: 1.3
+        why: "对方回问/回应，可以交换一点个人信息"
+        when: {fact: interest.reciprocity, op: '>=', value: 0.45}
+      - to: flirt_signal
+        prior: 0.8
+        why: "相互注视且关系较近"
+        when:
+          all:
+            - {fact: interest.mutual_gaze, op: '>=', value: 0.6}
+            - {fact: relationship.stage, op: 'in', value: [close, intimate]}
+      - to: converse_listen
+        prior: 1.4
+        why: "没有回应或出现拒绝，停止推进"
+        when:
+          any:
+            - {fact: recent.rejection, within: 2.0, op: '==', value: true}
+            - {fact: dwell, op: '>=', value: 4.0}
+
+  - id: self_disclose
+    name_zh: 低风险自我披露
+    family: dyad
+    l1: 3
+    text: "我分享一个低风险的个人细节，给对方回应的空间；不一次性倾倒，也不要求对方等价交换。"
+    invariants: ["不触碰", "不施压"]
+    tags: [courtship, consent]
+    action: {intent: stand, target: focus, gaze: target_face, hand: none, heading: face_target, distance_band: [1.0, 1.6], speech_act: self_disclose, hold_s: 1.2}
+    min_dwell: 0.8
+    max_dwell: 5.0
+    fallback: converse_listen
+    transitions:
+      - to: invite_activity
+        prior: 1.2
+        why: "对方也分享并保持回应，邀请一起做事"
+        when: {fact: interest.reciprocity, op: '>=', value: 0.5}
+      - to: flirt_signal
+        prior: 0.8
+        why: "相互注视且关系较近"
+        when:
+          all:
+            - {fact: interest.mutual_gaze, op: '>=', value: 0.6}
+            - {fact: relationship.stage, op: 'in', value: [close, intimate]}
+      - to: converse_listen
+        prior: 1.5
+        why: "对方回避或拒绝，停止推进"
+        when:
+          any:
+            - {fact: recent.rejection, within: 2.0, op: '==', value: true}
+            - {fact: dwell, op: '>=', value: 5.0}
+
+  - id: invite_activity
+    name_zh: 邀请一起做事
+    family: dyad
+    l1: 3
+    text: "我邀请对方一起做一件低压力的事（看展、听歌、逛世界）；对方拒绝也没关系，不把拒绝当冒犯。"
+    invariants: ["不触碰", "拒绝可接受"]
+    tags: [courtship, consent]
+    action: {intent: stand, target: focus, gaze: target_face, hand: none, heading: face_target, distance_band: [1.0, 1.6], speech_act: invite, hold_s: 1.2}
+    min_dwell: 0.8
+    max_dwell: 5.0
+    fallback: converse_listen
+    transitions:
+      - to: flirt_signal
+        prior: 1.0
+        why: "对方接受邀请，关系较近时进入轻度暧昧"
+        when:
+          all:
+            - {fact: recent.invitation_accept, within: 3.0, op: '==', value: true}
+            - {fact: relationship.stage, op: 'in', value: [close, intimate]}
+      - to: converse_listen
+        prior: 1.6
+        why: "拒绝或没有回应，回到普通对话"
+        when:
+          any:
+            - {fact: recent.rejection, within: 2.0, op: '==', value: true}
+            - {fact: dwell, op: '>=', value: 5.0}
+      - to: hold_distance
+        prior: 0.8
+        why: "对方舒适度低，保持距离"
+        when: {fact: affect.comfort, op: '<', value: 0.45}
+
+  # --------------------------------------------------------------- intimacy
+  # 亲密行为是 VRChat 社交的一部分（摸头/抚摸/拥抱/亲吻），但它们是
+  # 高风险的接近行为：必须有关系阶段、明确同意、舒适度和随时撤回。
+  # 这些状态的动作是非露骨的、短时的；不建模性行为。
+  - id: flirt_signal
+    name_zh: 亲密试探
+    family: dyad
+    l1: 3
+    text: "我用玩笑、夸奖或眼神试探对方是否愿意更亲近；不主动触碰，先看对方是否回以同样的信号。"
+    invariants: ["保持社交距离", "未获得触碰同意"]
+    tags: [intimacy, consent]
+    action: {intent: stand, target: focus, gaze: target_face, hand: none, heading: face_target, distance_band: [0.8, 1.4], speech_act: flirt, hold_s: 1.0}
+    min_dwell: 1.0
+    max_dwell: 6.0
+    fallback: converse_listen
+    transitions:
+      - to: intimate_withdraw
+        prior: 2.4
+        why: "情绪不适/害怕/过载，先退出亲密"
+        when:
+          any:
+            - {fact: emotion.label, op: 'in', value: [fearful, shutdown, overwhelmed]}
+            - {fact: emotion.comfort, op: '<', value: 0.35}
+      - to: ask_consent
+        prior: 1.2
+        why: "关系足够近、对方舒适、且我有明确触碰意图时，先问同意"
+        when:
+          all:
+            - {fact: relationship.stage, op: 'in', value: [close, intimate]}
+            - {fact: consent.state, op: 'in', value: [none, asked]}
+            - {fact: affect.comfort, op: '>=', value: 0.55}
+            - {fact: intent.touch, op: '!=', value: none}
+      - to: converse_listen
+        prior: 1.0
+        why: "对方没有回以亲密信号，回到普通对话"
+        when:
+          any:
+            - {fact: affect.comfort, op: '<', value: 0.4}
+            - {fact: recent.rejection, within: 2.0, op: '==', value: true}
+      - to: hold_distance
+        prior: 0.6
+        why: "试探没有回应"
+        when: {fact: dwell, op: '>=', value: 4.0}
+
+  - id: ask_consent
+    name_zh: 询问触碰同意
+    family: dyad
+    l1: 3
+    text: "我明确问对方是否愿意被摸头、拥抱或亲吻；不靠近、不预设答案，也不把沉默当同意。"
+    invariants: ["未触碰", "等待明确回答"]
+    tags: [intimacy, consent]
+    action: {intent: stand, target: focus, gaze: target_face, hand: none, heading: face_target, distance_band: [0.8, 1.4], speech_act: ask_consent, hold_s: 1.0}
+    min_dwell: 0.8
+    max_dwell: 4.0
+    fallback: consent_wait
+    transitions:
+      - to: consent_wait
+        prior: 2.0
+        why: "问题已问出，停住等回答"
+        when: {fact: dwell, op: '>=', value: 0.8}
+      - to: intimate_withdraw
+        prior: 1.5
+        why: "对方已经拒绝或撤回"
+        when: {fact: consent.state, op: 'in', value: [denied, withdrawn]}
+
+  - id: consent_wait
+    name_zh: 等待同意
+    family: dyad
+    l1: 3
+    text: "我停住等待明确回答；对方沉默、后退或犹豫都按未同意处理，不靠近。"
+    invariants: ["未触碰", "沉默不等于同意"]
+    tags: [intimacy, consent]
+    action: {intent: stand, target: focus, gaze: target_face, hand: none, heading: face_target, distance_band: [0.8, 1.4], hold_s: 1.0}
+    min_dwell: 0.8
+    max_dwell: 5.0
+    fallback: intimate_withdraw
+    transitions:
+      - to: headpat_offer
+        prior: 1.6
+        why: "对方同意摸头，先做手势确认"
+        when:
+          all:
+            - {fact: consent.state, op: '==', value: granted}
+            - {fact: intent.touch, op: '==', value: headpat}
+      - to: caress_give
+        prior: 1.5
+        why: "对方同意轻抚"
+        when:
+          all:
+            - {fact: consent.state, op: '==', value: granted}
+            - {fact: intent.touch, op: '==', value: pet}
+      - to: hug_open
+        prior: 1.5
+        why: "对方同意拥抱，先张开手臂"
+        when:
+          all:
+            - {fact: consent.state, op: '==', value: granted}
+            - {fact: intent.touch, op: '==', value: hug}
+      - to: kiss_lean
+        prior: 1.4
+        why: "关系亲密且对方同意，缓慢靠近"
+        when:
+          all:
+            - {fact: consent.state, op: '==', value: granted}
+            - {fact: intent.touch, op: '==', value: kiss}
+            - {fact: relationship.stage, op: '==', value: intimate}
+            - {fact: affect.comfort, op: '>=', value: 0.6}
+      - to: intimate_withdraw
+        prior: 2.0
+        why: "被拒绝、撤回或超时，按未同意处理"
+        when:
+          any:
+            - {fact: consent.state, op: 'in', value: [denied, limited, withdrawn]}
+            - {fact: dwell, op: '>=', value: 5.0}
+
+  - id: headpat_offer
+    name_zh: 示意摸头
+    family: dyad
+    l1: 3
+    text: "我抬手示意想摸头，停在对方头顶前方，等对方低头或靠近；不直接落手。"
+    invariants: ["已获同意", "动作停在半途"]
+    tags: [intimacy, consent]
+    action: {intent: stand, target: focus, gaze: target_face, hand: offer, heading: face_target, distance_band: [0.6, 1.0], touch: headpat, consent_required: true, intimacy_level: 1, hold_s: 1.0}
+    min_dwell: 0.5
+    max_dwell: 3.0
+    fallback: intimate_withdraw
+    transitions:
+      - to: headpat_give
+        prior: 1.8
+        why: "对方低头或靠近，接受示意"
+        when:
+          all:
+            - {fact: consent.state, op: '==', value: granted}
+            - {fact: focus.facing_me, op: '>=', value: 0.2}
+            - {fact: focus.distance, op: '<=', value: 0.9}
+      - to: intimate_withdraw
+        prior: 1.4
+        why: "对方没有靠近或撤回同意"
+        when:
+          any:
+            - {fact: dwell, op: '>=', value: 3.0}
+            - {fact: consent.state, op: 'in', value: [denied, withdrawn]}
+
+  - id: headpat_receive
+    name_zh: 接受摸头
+    family: dyad
+    l1: 3
+    text: "我低头或靠近，接受对方摸头；保持放松，不突然抬臂，也不把接受当成进一步亲密。"
+    invariants: ["已同意", "动作短"]
+    tags: [intimacy, consent]
+    action: {intent: stand, target: focus, gaze: down, hand: rest, heading: keep, distance_band: [0.6, 1.0], touch: headpat, consent_required: true, intimacy_level: 1, hold_s: 1.0}
+    min_dwell: 0.5
+    max_dwell: 3.0
+    fallback: boundary_check
+    transitions:
+      - to: boundary_check
+        prior: 1.5
+        why: "摸头结束，确认舒适度"
+        when: {fact: dwell, op: '>=', value: 1.5}
+      - to: intimate_withdraw
+        prior: 1.5
+        why: "不舒服或对方越界"
+        when:
+          any:
+            - {fact: recent.boundary, within: 1.0, op: '==', value: true}
+            - {fact: affect.comfort, op: '<', value: 0.4}
+
+  - id: headpat_give
+    name_zh: 执行摸头
+    family: dyad
+    l1: 3
+    text: "我轻轻摸对方的头，动作短、力度轻，观察对方是否放松；对方僵硬、后退或说停就立刻停。"
+    invariants: ["已获同意", "动作短", "随时可停"]
+    tags: [intimacy, consent]
+    action: {intent: stand, target: focus, gaze: target_face, hand: headpat, heading: face_target, distance_band: [0.6, 1.0], touch: headpat, consent_required: true, intimacy_level: 1, hold_s: 1.5}
+    min_dwell: 0.5
+    max_dwell: 4.0
+    fallback: boundary_check
+    transitions:
+      - to: boundary_check
+        prior: 1.6
+        why: "动作结束，停下来确认"
+        when:
+          any:
+            - {fact: dwell, op: '>=', value: 1.5}
+            - {fact: recent.boundary, within: 1.0, op: '==', value: true}
+      - to: intimate_withdraw
+        prior: 2.0
+        why: "同意撤回或对方退开"
+        when:
+          any:
+            - {fact: consent.state, op: 'in', value: [denied, withdrawn]}
+            - {fact: focus.distance, op: '>', value: 1.2}
+
+  - id: caress_give
+    name_zh: 执行轻抚
+    family: dyad
+    l1: 3
+    text: "我用手指轻抚对方的头发或脸颊外侧，幅度小、时间短；不碰敏感部位，观察对方是否放松。"
+    invariants: ["已获明确同意", "非敏感部位", "动作短"]
+    tags: [intimacy, consent]
+    action: {intent: stand, target: focus, gaze: target_face, hand: pet, heading: face_target, distance_band: [0.5, 0.9], touch: pet, consent_required: true, intimacy_level: 2, hold_s: 1.5}
+    min_dwell: 0.5
+    max_dwell: 4.0
+    fallback: boundary_check
+    transitions:
+      - to: boundary_check
+        prior: 1.5
+        why: "轻抚结束，确认舒适"
+        when:
+          any:
+            - {fact: dwell, op: '>=', value: 2.0}
+            - {fact: recent.boundary, within: 1.0, op: '==', value: true}
+      - to: intimate_withdraw
+        prior: 2.0
+        why: "撤回同意或对方后退"
+        when:
+          any:
+            - {fact: consent.state, op: 'in', value: [denied, withdrawn]}
+            - {fact: focus.distance, op: '>', value: 1.1}
+
+  - id: caress_receive
+    name_zh: 接受轻抚
+    family: dyad
+    l1: 3
+    text: "我接受对方的轻抚，保持头部稳定；不舒服就后退或明确说不，不因为已经同意就继续忍耐。"
+    invariants: ["已同意", "可随时撤回"]
+    tags: [intimacy, consent]
+    action: {intent: stand, target: focus, gaze: target_face, hand: none, heading: face_target, distance_band: [0.5, 0.9], touch: pet, consent_required: true, intimacy_level: 2, hold_s: 1.0}
+    min_dwell: 0.5
+    max_dwell: 4.0
+    fallback: boundary_check
+    transitions:
+      - to: boundary_check
+        prior: 1.4
+        why: "轻抚结束"
+        when: {fact: dwell, op: '>=', value: 2.0}
+      - to: intimate_withdraw
+        prior: 2.0
+        why: "不舒服或撤回同意"
+        when:
+          any:
+            - {fact: affect.comfort, op: '<', value: 0.4}
+            - {fact: consent.state, op: 'in', value: [denied, withdrawn]}
+
+  - id: hug_open
+    name_zh: 张开手臂
+    family: dyad
+    l1: 3
+    text: "我张开手臂示意拥抱，停在对方一臂距离；不强行拉近，也不堵住对方退路。"
+    invariants: ["已获同意", "未接触"]
+    tags: [intimacy, consent]
+    action: {intent: stand, target: focus, gaze: target_face, hand: offer, heading: face_target, distance_band: [0.5, 0.9], touch: hug, consent_required: true, intimacy_level: 2, hold_s: 1.0}
+    min_dwell: 0.5
+    max_dwell: 3.0
+    fallback: intimate_withdraw
+    transitions:
+      - to: hug_hold
+        prior: 1.8
+        why: "对方靠近并接受拥抱"
+        when:
+          all:
+            - {fact: consent.state, op: '==', value: granted}
+            - {fact: focus.distance, op: '<=', value: 0.8}
+            - {fact: focus.facing_me, op: '>=', value: 0.2}
+      - to: intimate_withdraw
+        prior: 1.5
+        why: "没有靠近或撤回同意"
+        when:
+          any:
+            - {fact: dwell, op: '>=', value: 3.0}
+            - {fact: consent.state, op: 'in', value: [denied, withdrawn]}
+
+  - id: hug_hold
+    name_zh: 短拥抱
+    family: dyad
+    l1: 3
+    text: "我们短促拥抱，保持上身稳定，不收紧；对方松手我也松手，不把拥抱延长成别的东西。"
+    invariants: ["已同意", "短时", "对方松手即停"]
+    tags: [intimacy, consent]
+    action: {intent: stand, target: focus, gaze: target_face, hand: hug, heading: face_target, distance_band: [0.4, 0.8], touch: hug, consent_required: true, intimacy_level: 2, hold_s: 2.0}
+    min_dwell: 0.8
+    max_dwell: 5.0
+    fallback: boundary_check
+    transitions:
+      - to: boundary_check
+        prior: 1.6
+        why: "拥抱结束，确认边界"
+        when:
+          any:
+            - {fact: dwell, op: '>=', value: 2.5}
+            - {fact: recent.boundary, within: 1.0, op: '==', value: true}
+      - to: intimate_withdraw
+        prior: 2.2
+        why: "同意撤回或对方退开"
+        when:
+          any:
+            - {fact: consent.state, op: 'in', value: [denied, withdrawn]}
+            - {fact: focus.distance, op: '>', value: 1.0}
+
+  - id: kiss_lean
+    name_zh: 靠近亲吻
+    family: dyad
+    l1: 3
+    text: "我缓慢靠近，给对方足够时间转头或后退；不突然贴近，不堵住退路，也不把靠近当成同意。"
+    invariants: ["已获明确同意", "对方可随时后退"]
+    tags: [intimacy, consent]
+    action: {intent: stand, target: focus, gaze: target_face, hand: none, heading: face_target, distance_band: [0.45, 0.8], touch: kiss, consent_required: true, intimacy_level: 3, hold_s: 0.8}
+    min_dwell: 0.5
+    max_dwell: 3.0
+    fallback: kiss_decline
+    transitions:
+      - to: kiss_accept
+        prior: 1.8
+        why: "对方迎合并保持舒适"
+        when:
+          all:
+            - {fact: consent.state, op: '==', value: granted}
+            - {fact: focus.facing_me, op: '>=', value: 0.3}
+            - {fact: focus.distance, op: '<=', value: 0.7}
+            - {fact: affect.comfort, op: '>=', value: 0.6}
+      - to: kiss_decline
+        prior: 2.0
+        why: "对方转头、后退或撤回同意"
+        when:
+          any:
+            - {fact: focus.facing_me, op: '<', value: 0.0}
+            - {fact: consent.state, op: 'in', value: [limited, denied, withdrawn]}
+            - {fact: dwell, op: '>=', value: 2.0}
+
+  - id: kiss_accept
+    name_zh: 接受亲吻
+    family: dyad
+    l1: 3
+    text: "我接受一个短暂、轻的亲吻；不升级、不延长，随后停下来确认对方还好。"
+    invariants: ["已同意", "短时", "不升级"]
+    tags: [intimacy, consent]
+    action: {intent: stand, target: focus, gaze: target_face, hand: none, heading: face_target, distance_band: [0.4, 0.8], touch: kiss, consent_required: true, intimacy_level: 3, hold_s: 1.0}
+    min_dwell: 0.5
+    max_dwell: 2.0
+    fallback: aftercare
+    transitions:
+      - to: aftercare
+        prior: 1.8
+        why: "亲吻结束，进入确认与照护"
+        when: {fact: dwell, op: '>=', value: 1.0}
+      - to: intimate_withdraw
+        prior: 2.0
+        why: "对方不舒服或撤回"
+        when:
+          any:
+            - {fact: recent.boundary, within: 1.0, op: '==', value: true}
+            - {fact: consent.state, op: 'in', value: [denied, withdrawn]}
+
+  - id: kiss_decline
+    name_zh: 拒绝亲吻
+    family: dyad
+    l1: 3
+    text: "我转头或后退，明确拒绝亲吻；不解释过多，也不惩罚对方，随后保持距离。"
+    invariants: ["拒绝", "后退"]
+    tags: [intimacy, consent]
+    action: {intent: stand, target: focus, gaze: none, hand: none, heading: keep, distance_band: [0.8, 1.4], touch: none, consent_required: true, intimacy_level: 0, hold_s: 0.8}
+    min_dwell: 0.5
+    max_dwell: 3.0
+    fallback: intimate_withdraw
+    transitions:
+      - to: intimate_withdraw
+        prior: 1.8
+        why: "拒绝后退出亲密距离"
+        when: {fact: dwell, op: '>=', value: 0.8}
+      - to: converse_listen
+        prior: 0.6
+        why: "对方道歉并尊重边界，可以回到普通对话"
+        when:
+          all:
+            - {fact: recent.apology, within: 2.0, op: '==', value: true}
+            - {fact: consent.state, op: 'in', value: [granted, none]}
+
+  - id: boundary_check
+    name_zh: 边界确认
+    family: dyad
+    l1: 3
+    text: "亲密动作后我停一下，问对方是否舒服；看对方是否放松、是否后退，不替对方回答。"
+    invariants: ["停止动作", "询问舒适度"]
+    tags: [intimacy, consent]
+    action: {intent: stand, target: focus, gaze: target_face, hand: none, heading: face_target, distance_band: [0.8, 1.4], speech_act: question, hold_s: 1.0}
+    min_dwell: 0.5
+    max_dwell: 4.0
+    fallback: aftercare
+    transitions:
+      - to: aftercare
+        prior: 1.6
+        why: "对方舒适，进入温和收尾"
+        when: {fact: affect.comfort, op: '>=', value: 0.6}
+      - to: intimate_withdraw
+        prior: 2.0
+        why: "对方不舒服、后退或撤回同意"
+        when:
+          any:
+            - {fact: affect.comfort, op: '<', value: 0.4}
+            - {fact: recent.boundary, within: 2.0, op: '==', value: true}
+            - {fact: consent.state, op: 'in', value: [denied, withdrawn]}
+
+  - id: intimate_withdraw
+    name_zh: 退出亲密
+    family: dyad
+    l1: 3
+    text: "我停止亲密行为，后退到社交距离，不再追问；给对方空间，也保留修复的可能。"
+    invariants: ["停止触碰", "后退"]
+    tags: [intimacy, consent]
+    action: {intent: walk, target: away, gaze: none, hand: none, heading: away, distance_band: [1.2, 2.0], speed_band: [0.3, 0.6], touch: none, consent_required: true, intimacy_level: 0}
+    min_dwell: 0.5
+    max_dwell: 3.0
+    fallback: hold_distance
+    transitions:
+      - to: hold_distance
+        prior: 1.8
+        why: "回到社交距离"
+        when: {fact: nearest.distance, op: '>=', value: 1.2}
+      - to: converse_listen
+        prior: 0.5
+        why: "对方明确表示可以继续普通对话"
+        when: {fact: recent.speak_other, within: 2.0, op: '==', value: true}
+
+  - id: aftercare
+    name_zh: 亲密后照护
+    family: dyad
+    l1: 3
+    text: "我用温和的语气确认对方还好，保持一点距离；不立刻开新话题，也不要求对方继续亲近。"
+    invariants: ["停止亲密", "确认舒适"]
+    tags: [intimacy, consent]
+    action: {intent: stand, target: focus, gaze: target_face, hand: none, heading: face_target, distance_band: [0.8, 1.4], speech_act: backchannel, hold_s: 1.0}
+    min_dwell: 0.8
+    max_dwell: 6.0
+    fallback: hold_distance
+    transitions:
+      - to: converse_listen
+        prior: 1.0
+        why: "对方主动继续普通对话"
+        when: {fact: recent.speak_other, within: 2.0, op: '==', value: true}
+      - to: hold_distance
+        prior: 0.8
+        why: "照护结束，保持距离"
+        when: {fact: dwell, op: '>=', value: 4.0}
+      - to: intimate_withdraw
+        prior: 1.5
+        why: "对方仍不舒服"
+        when: {fact: recent.boundary, within: 2.0, op: '==', value: true}
+
+  # ---------------------------------------------------------------- safety
+  - id: freeze_unknown
+    name_zh: 未知冻结
+    family: safety
+    l1: null
+    text: "感知不确定或场景刚切换，我先冻结，保持站姿，不做社交动作，等状态估计稳定。"
+    invariants: ["感知不可信"]
+    action: {intent: stand, target: none, gaze: scan, hand: none, heading: keep}
+    min_dwell: 0.5
+    max_dwell: 3.0
+    fallback: solo_idle
+    transitions:
+      - to: solo_idle
+        prior: 1.8
+        why: "感知恢复"
+        when:
+          all:
+            - {fact: self.tracking_ok, op: '==', value: true}
+            - {fact: dwell, op: '>=', value: 1.0}
+
+  - id: too_close_retreat
+    name_zh: 过近后撤
+    family: safety
+    l1: null
+    text: "有人进入我的个人空间，我立即后撤一步并侧身，先恢复距离再看对方意图。"
+    invariants: ["个人空间被侵入"]
+    action: {intent: walk, target: away, gaze: target_face, hand: none, heading: keep, speed_band: [0.4, 0.9]}
+    min_dwell: 0.5
+    max_dwell: 3.0
+    fallback: hold_distance
+    transitions:
+      - to: hold_distance
+        prior: 1.8
+        why: "距离恢复"
+        when: {fact: nearest.distance, op: '>=', value: 0.9}
+      - to: freeze_unknown
+        prior: 0.6
+        why: "感知丢失"
+        when: {fact: self.tracking_ok, op: '==', value: false}
+      - to: repair_misstep
+        prior: 1.2
+        why: "刚才是碰撞，需要道歉修复"
+        when:
+          all:
+            - {fact: recent.collision, within: 2.0, op: '==', value: true}
+            - {fact: dwell, op: '>=', value: 0.4}
+
+  - id: lost_target
+    name_zh: 目标丢失
+    family: safety
+    l1: null
+    text: "跟随或对话对象突然不可见，我原地小幅搜索，不立刻追出去。"
+    invariants: ["目标不可见"]
+    action: {intent: stand, target: none, gaze: scan, hand: none, heading: keep}
+    min_dwell: 0.5
+    max_dwell: 5.0
+    fallback: solo_scan
+    transitions:
+      - to: observe_near
+        prior: 1.8
+        why: "目标重新出现"
+        when: {fact: focus.visible, op: '==', value: true}
+      - to: solo_scan
+        prior: 0.8
+        why: "搜索一段时间"
+        when: {fact: dwell, op: '>=', value: 3.0}
+
+  - id: stuck_recover
+    name_zh: 卡住恢复
+    family: safety
+    l1: null
+    text: "检测到碰撞或卡住，我后退一步并换方向重试，不继续顶墙。"
+    invariants: ["碰撞/卡住"]
+    action: {intent: walk, target: away, gaze: down, hand: none, heading: keep, speed_band: [0.2, 0.5]}
+    min_dwell: 0.5
+    max_dwell: 2.0
+    fallback: path_blocked
+    transitions:
+      - to: walk_through
+        prior: 1.2
+        why: "恢复移动"
+        when:
+          all:
+            - {fact: self.stuck, op: '==', value: false}
+            - {fact: dwell, op: '>=', value: 0.8}
+      - to: path_blocked
+        prior: 1.0
+        why: "仍然受阻"
+        when: {fact: dwell, op: '>=', value: 1.5}

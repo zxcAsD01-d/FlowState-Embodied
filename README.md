@@ -16,7 +16,8 @@ FlowState-Embodied/
 ├── README.md          本文件（仓库说明）
 ├── LICENSE            MIT
 ├── .gitignore
-└── ARDY-V/            项目主体，独立目录封装
+├── ARDY-V/            第一人称视觉导航（DINOv2 → 占据 → A* → ARDY），独立目录封装
+└── AL-Duet/           多 AI 同场社交行为平台（状态机 → ARDY 持续生成 → 视觉回路），独立目录封装
     ├── ardy_v/        服务、运行时、导航、推理、训练
     ├── web/           three.js + three-vrm + cannon-es 前端
     ├── routes/        测试路线 JSON
@@ -26,6 +27,13 @@ FlowState-Embodied/
     ├── docs/          演示截图
     └── requirements.txt
 ```
+
+## AL-Duet：多 AI 同场社交行为平台
+
+`AL-Duet/` 是同一 ARDY 运动生成底座上的第二条路线：N 个 AI 角色在同一三维
+街景中各自运行"感知 → 社交/情绪状态机 → ARDY 持续动作生成 → 视觉回路"的
+闭环，支持实时并行推理（多角色一次扩散 pass）与非实时推理后播放两种结构。
+安装、运行与行为细节见 [`AL-Duet/README.md`](AL-Duet/README.md)。
 
 下文所有命令默认先 `cd ARDY-V`。
 

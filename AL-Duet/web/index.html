@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AL-Duet · 多 AI 同场平台</title>
+  <link rel="icon" href="/favicon.svg">
+  <link rel="stylesheet" href="/styles.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/vendor/three/three.module.js",
+        "three/addons/": "/vendor/addons/",
+        "@pixiv/three-vrm": "/vendor/three-vrm/three-vrm.module.min.js"
+      }
+    }
+  </script>
+</head>
+<body data-mode="">
+  <canvas id="stage"></canvas>
+
+  <header id="brand">
+    <div class="brand-main">AL-Duet</div>
+    <div class="brand-sub" id="brandSub">多 AI 同场 · 状态机 → ARDY → 视觉回路</div>
+  </header>
+
+  <aside id="topRight">
+    <section id="info">
+      <div class="row"><span>场景</span><b id="infoScene">—</b></div>
+      <div class="row"><span>模型</span><b id="infoAvatar">—</b></div>
+      <div class="row"><span>状态</span><b id="infoDuration">—</b></div>
+      <div class="row"><span>数据</span><b id="infoSource">episode.json</b></div>
+    </section>
+    <section id="player">
+      <div class="player-row">
+        <button id="playBtn" class="primary">暂停</button>
+        <button id="restartBtn">回放</button>
+        <span id="fpsRead">— fps</span>
+      </div>
+      <input id="seek" type="range" min="0" max="1" step="0.01" value="0">
+      <div class="player-row">
+        <span id="timeRead">0.00 / 0.00 s</span>
+        <label id="followWrap"><input id="followChk" type="checkbox" checked>跟随</label>
+      </div>
+    </section>
+  </aside>
+
+  <section id="duetHud" aria-live="polite"><!-- per-agent HUD cards injected --></section>
+
+  <div id="boot"><div class="boot-card"><b>AL-Duet</b><p id="bootMsg">载入…</p></div></div>
+  <script type="module" src="/main.js?v=20261029a"></script>
+</body>
+</html>

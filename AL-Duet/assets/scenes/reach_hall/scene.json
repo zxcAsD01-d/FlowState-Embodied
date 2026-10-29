@@ -1,0 +1,18 @@
+{
+  "schema": "vrm-hub.scene.v1",
+  "id": "reach_hall",
+  "name": "光标对齐厅",
+  "module": "reach_hall",
+  "description": "长厅里一个绿色光标，光标位置由 ARDY 生成动作的最终顶点决定；模型走到光标处，用于位置/移动意图对齐与姿态质量评估。",
+  "spawn": { "position": [0, 0, 0], "yaw": 0 },
+  "camera": { "distance": 4.6, "yaw_deg": 175, "pitch_deg": 12, "follow": true },
+  "environment": {
+    "background": "#080d16",
+    "fog": { "color": "#080d16", "near": 16, "far": 52 },
+    "ground_y": 0
+  },
+  "physics": {
+    "gravity": [0, -9.81, 0],
+    "objects": []
+  }
+}

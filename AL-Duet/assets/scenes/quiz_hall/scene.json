@@ -1,0 +1,18 @@
+{
+  "schema": "vrm-hub.scene.v1",
+  "id": "quiz_hall",
+  "name": "问答对齐厅",
+  "module": "quiz_hall",
+  "description": "三座问答台：中文题干写在发光看板上，红色按钮带黑色字母，右手接触判定按下，答题结果作为意识-动作对齐的奖励。",
+  "spawn": { "position": [0, 0, -1.7], "yaw": 0 },
+  "camera": { "distance": 5.8, "yaw_deg": 168, "pitch_deg": 14, "follow": true },
+  "environment": {
+    "background": "#0a0d16",
+    "fog": { "color": "#0a0d16", "near": 14, "far": 46 },
+    "ground_y": 0
+  },
+  "physics": {
+    "gravity": [0, -9.81, 0],
+    "objects": []
+  }
+}

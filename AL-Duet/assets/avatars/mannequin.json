@@ -1,0 +1,9 @@
+{
+  "id": "mannequin",
+  "name": "程序化人偶",
+  "kind": "procedural",
+  "height_m": 1.62,
+  "yaw_offset_deg": 0,
+  "credit": "VRM-HUB built-in mannequin",
+  "license_note": "内置程序化人偶，无外部模型资产，可作为模型缺失时的回退。"
+}

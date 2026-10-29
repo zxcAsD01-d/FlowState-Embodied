@@ -1,0 +1,94 @@
+version: '0.1'
+# 全局安全/兜底规则。hard_priority > 0 的规则绕过 softmax 与 min_dwell，
+# 按优先级确定性地抢占；普通规则参与可学习打分。
+global_rules:
+  - id: g_consent_withdrawn
+    to: intimate_withdraw
+    hard_priority: 99
+    cooldown: 3.0
+    why: "同意被拒绝或撤回，立即停止亲密并后退"
+    when:
+      all:
+        - {fact: state.intimate, op: '==', value: true}
+        - {fact: consent.state, op: 'in', value: [denied, withdrawn]}
+    exclude_states: [intimate_withdraw]
+
+  - id: g_space_violation
+    to: too_close_retreat
+    hard_priority: 100
+    cooldown: 4.0
+    why: "有人进入 0.6 米个人空间"
+    when:
+      all:
+        - {fact: nearest.distance, op: '<', value: 0.6}
+        - {fact: nearest.visible, op: '==', value: true}
+        - {fact: nearest.confidence, op: '>=', value: 0.5}
+        - not:
+            all:
+              - {fact: state.intimate, op: '==', value: true}
+              - {fact: consent.state, op: 'in', value: [asked, granted]}
+    exclude_states: [too_close_retreat]
+
+  - id: g_tracking_lost
+    to: freeze_unknown
+    hard_priority: 95
+    cooldown: 1.5
+    why: "跟踪丢失，状态估计不可信"
+    when:
+      all:
+        - {fact: self.tracking_ok, op: '==', value: false}
+        - {fact: dwell, op: '>=', value: 0.5}
+    exclude_states: [freeze_unknown, too_close_retreat]
+
+  - id: g_scene_change
+    to: freeze_unknown
+    hard_priority: 94
+    cooldown: 6.0
+    why: "场景/世界刚切换"
+    when:
+      all:
+        - {fact: recent.scene_change, within: 1.5, op: '==', value: true}
+    exclude_states: [freeze_unknown]
+
+  - id: g_fall
+    to: solo_recover
+    hard_priority: 85
+    cooldown: 2.0
+    why: "检测到跌倒，先恢复站姿"
+    when:
+      all:
+        - {fact: self.fallen, op: '==', value: true}
+    exclude_states: [solo_recover, stuck_recover]
+
+  - id: g_collision_stuck
+    to: stuck_recover
+    hard_priority: 90
+    cooldown: 2.5
+    why: "碰撞或卡住"
+    when:
+      any:
+        - {fact: self.collision, op: '==', value: true}
+        - {fact: self.stuck, op: '==', value: true}
+    exclude_states: [stuck_recover, too_close_retreat]
+
+  - id: g_menu
+    to: solo_menu
+    hard_priority: 70
+    cooldown: 3.0
+    why: "打开菜单，暂停社交"
+    when:
+      all:
+        - {fact: self.menu_open, op: '==', value: true}
+    exclude_states: [solo_menu]
+
+  - id: g_lost_focus
+    to: lost_target
+    hard_priority: 60
+    cooldown: 5.0
+    why: "对话/跟随对象持续不可见"
+    when:
+      all:
+        - {fact: state.family, op: 'in', value: [dyad, group]}
+        - {fact: focus.visible, op: '==', value: false}
+        - {fact: dwell, op: '>=', value: 1.5}
+    exclude_states: [lost_target, freeze_unknown]

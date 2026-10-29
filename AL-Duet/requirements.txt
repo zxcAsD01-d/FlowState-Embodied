@@ -1,0 +1,19 @@
+# AL-Duet platform
+fastapi>=0.110
+uvicorn[standard]>=0.29
+httpx>=0.27
+numpy>=1.26
+pyyaml>=6.0
+pydantic>=2.6
+websockets>=12
+
+# External (not on PyPI in this workflow):
+#   ardy          — NVIDIA ARDY release (model implementation + Core8 ckpt)
+#   ALDUET_AL0A   — checkout with app/ardy_runtime.py + text embeddings
+#
+# Optional, only for `--vision render`:
+#   ultralytics>=8.2    (AGPL — kept OUT of this repo's code path by default)
+#   playwright>=1.44
+#
+# torch with CUDA per your system, e.g.:
+#   torch>=2.4

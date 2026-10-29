@@ -1,0 +1,37 @@
+{
+  "schema": "vrm-hub.scene.v1",
+  "id": "sakura_street",
+  "name": "樱花街道",
+  "module": "sakura_street",
+  "description": "程序化夜景樱花街道。角色动画为运动学驱动，木箱/球/路障等道具由 MuJoCo 仅对物体做动力学。",
+  "spawn": { "position": [0, 0, 0], "yaw": 0 },
+  "camera": { "distance": 5.2, "yaw_deg": 38, "pitch_deg": 16, "follow": true },
+  "environment": {
+    "background": "#080d16",
+    "fog": { "color": "#080d16", "near": 16, "far": 92 },
+    "ground_y": 0
+  },
+  "visual": {
+    "seed": 11,
+    "road": { "length": 150, "width": 7.0 },
+    "trees": { "count": 9, "spacing": 8.5, "z": 5.6, "x_start": -34 },
+    "petals": { "count": 420 },
+    "buildings": { "count": 9, "spacing": 15.0, "z": 12.5, "x_start": -60 },
+    "lanterns": { "count": 7, "spacing": 16.0, "z": 4.1 },
+    "torii_x": -22,
+    "moon": true
+  },
+  "physics": {
+    "gravity": [0, -9.81, 0],
+    "objects": [
+      { "id": "crate_a", "name": "木箱 A", "shape": "box", "size": [0.46, 0.46, 0.46], "position": [-1.45, 0.232, 0.15], "rotation_y": 0.21, "mass": 2.4, "color": "#b5793f" },
+      { "id": "crate_b", "name": "木箱 B", "shape": "box", "size": [0.36, 0.36, 0.36], "position": [-2.0, 0.182, 0.72], "rotation_y": -0.31, "mass": 1.2, "color": "#c98a4b" },
+      { "id": "ball_a", "name": "红球", "shape": "sphere", "radius": 0.2, "position": [-2.55, 0.202, -0.32], "mass": 0.6, "color": "#d94f6a" },
+      { "id": "ball_b", "name": "蓝球", "shape": "sphere", "radius": 0.16, "position": [-0.95, 0.162, 1.05], "mass": 0.35, "color": "#4fb6d9" },
+      { "id": "cone_a", "name": "路障", "shape": "cylinder", "radius": 0.17, "height": 0.52, "position": [-3.2, 0.262, 0.35], "mass": 1.0, "color": "#f08a3c" },
+      { "id": "crate_c", "name": "木箱 C", "shape": "box", "size": [0.5, 0.5, 0.5], "position": [-4.3, 0.252, 0.1], "rotation_y": 0.52, "mass": 3.0, "color": "#8f6b43" },
+      { "id": "barricade", "name": "横杆", "shape": "box", "size": [1.1, 0.16, 0.18], "position": [-4.9, 0.082, -0.55], "rotation_y": 0.12, "mass": 1.6, "color": "#e8e3da" },
+      { "id": "ball_c", "name": "绿球", "shape": "sphere", "radius": 0.24, "position": [-5.6, 0.242, 0.6], "mass": 0.5, "color": "#8fe07a" }
+    ]
+  }
+}

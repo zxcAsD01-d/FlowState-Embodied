@@ -1,0 +1,165 @@
+{
+  "schema": "vrm-hub.scene.v1",
+  "id": "sakura_crossing",
+  "name": "樱花街道 · Sakura Crossing",
+  "module": "sakura_crossing",
+  "description": "复用 AL-0B/repos/sakura-crossing 的高质量 cel-shaded 樱花街道，平铺裁切到踏切北侧路段；角色动画为运动学驱动，木箱/球/路障由 MuJoCo 仅对物体做动力学。",
+  "credit": "Sakura Crossing · MIT · AL-0B/repos/sakura-crossing",
+  "spawn": {
+    "position": [
+      0,
+      0,
+      0
+    ],
+    "yaw": 0
+  },
+  "camera": {
+    "distance": 5.6,
+    "yaw_deg": 78,
+    "pitch_deg": 12,
+    "follow": true
+  },
+  "environment": {
+    "background": "#e6ecf7",
+    "fog": {
+      "color": "#e6ecf7",
+      "near": 44,
+      "far": 205
+    },
+    "ground_y": 0
+  },
+  "physics": {
+    "gravity": [
+      0,
+      -9.81,
+      0
+    ],
+    "objects": [
+      {
+        "id": "crate_a",
+        "name": "木箱 A",
+        "shape": "box",
+        "size": [
+          0.46,
+          0.46,
+          0.46
+        ],
+        "position": [
+          -0.6,
+          0.232,
+          -2.35
+        ],
+        "rotation_y": 0.21,
+        "mass": 2.4,
+        "color": "#b5793f"
+      },
+      {
+        "id": "crate_b",
+        "name": "木箱 B",
+        "shape": "box",
+        "size": [
+          0.36,
+          0.36,
+          0.36
+        ],
+        "position": [
+          -2.3,
+          0.182,
+          -2.45
+        ],
+        "rotation_y": -0.31,
+        "mass": 1.2,
+        "color": "#c98a4b"
+      },
+      {
+        "id": "ball_a",
+        "name": "红球",
+        "shape": "sphere",
+        "radius": 0.2,
+        "position": [
+          -4.42,
+          0.202,
+          0.82
+        ],
+        "mass": 0.6,
+        "color": "#d94f6a"
+      },
+      {
+        "id": "ball_b",
+        "name": "蓝球",
+        "shape": "sphere",
+        "radius": 0.16,
+        "position": [
+          -5.05,
+          0.162,
+          -2.05
+        ],
+        "mass": 0.35,
+        "color": "#4fb6d9"
+      },
+      {
+        "id": "cone_a",
+        "name": "路障",
+        "shape": "cylinder",
+        "radius": 0.17,
+        "height": 0.52,
+        "position": [
+          -2.35,
+          0.262,
+          2.55
+        ],
+        "mass": 1,
+        "color": "#f08a3c"
+      },
+      {
+        "id": "crate_c",
+        "name": "木箱 C",
+        "shape": "box",
+        "size": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "position": [
+          -4.1,
+          0.252,
+          -2.5
+        ],
+        "rotation_y": 0.52,
+        "mass": 3,
+        "color": "#8f6b43"
+      },
+      {
+        "id": "barricade",
+        "name": "横杆",
+        "shape": "box",
+        "size": [
+          1.1,
+          0.16,
+          0.18
+        ],
+        "position": [
+          -4.05,
+          0.082,
+          2.6
+        ],
+        "rotation_y": 0.12,
+        "mass": 1.6,
+        "color": "#e8e3da"
+      },
+      {
+        "id": "ball_c",
+        "name": "绿球",
+        "shape": "sphere",
+        "radius": 0.24,
+        "position": [
+          -3.3,
+          0.242,
+          -2
+        ],
+        "mass": 0.5,
+        "color": "#8fe07a"
+      }
+    ]
+  }
+}
