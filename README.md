@@ -27,14 +27,14 @@ FlowState-Embodied/
 │   ├── routes/        测试路线 JSON
 │   ├── tools/         路线运行器、数据生成、训练、QC 探针
 │   ├── checkpoints/   训练好的读出头
-│   ├── assets/        演示 VRM
+│   ├── assets/        场景/材质清单（角色 VRM 不入库）
 │   ├── docs/          演示截图
 │   └── requirements.txt
 └── AL-Duet/           状态机驱动：多 AI 同场社交（独立目录，见其 README）
     ├── engine/        贯通脚本：感知 → 社交/情绪 FSM → ARDY → 世界
     ├── backend/       FastAPI：N-agent 直播帧缓冲
     ├── web/           three.js + three-vrm 播放器（vendor 内置）
-    ├── assets/        演示 VRM + 场景清单
+    ├── assets/        场景清单（角色 VRM 不入库）
     ├── social 数据/   states.yaml + rules.yaml（随 engine/social 分发）
     └── requirements.txt
 ```
@@ -128,7 +128,7 @@ python -m uvicorn ardy_v.service:app --host 127.0.0.1 --port 8830
 | 依赖 | 来源 | 环境变量 |
 |---|---|---|
 | ARDY Core8 生成器（`run_r07_ardy_precision` / `run_r10_ardy_inverse`） | 作者 AL 研究树——需自备同接口的动作生成栈 | `FLOWSTATE_AL0A`、`FLOWSTATE_CIP_RUNS` |
-| VRM 角色 | 仓库内附 `assets/avatar.vrm` 仅作演示；也可换任意 VRM 0/1 人形 | `FLOWSTATE_VRM` |
+| VRM 角色 | 本仓库**不附带**角色模型；自备有合法权利的 VRM 0/1 人形，放到 `assets/avatar.vrm` | `FLOWSTATE_VRM` |
 | DINOv2 ViT-B/14 reg4 权重 | 首次运行由 torch.hub 缓存自动下载 | — |
 | YOLO 权重（可选，仅 `tools/train_yolo_depth.py`） | 自行下载（AGPL 许可） | `FLOWSTATE_YOLO_WEIGHTS` |
 
@@ -171,8 +171,8 @@ ARDY 只负责把决策执行成连续步态。角色自己判断环境——单
 ## 素材与许可
 
 代码以 [MIT](LICENSE) 发布。`web/vendor` 内第三方库（three.js、three-vrm、
-cannon-es）保留各自许可证。`ARDY-V/assets/avatar.vrm` 与
-`AL-Duet/assets/avatar.vrm` 为第三方角色模型，**仅用于本仓库的演示与评测**，
-不随 MIT 许可授权，二次分发/商用请自行确认权利。`ARDY-V/checkpoints/*.pt`
-为该路线训练的读出头，按原样提供。樱花街景模块来自 MIT 的 sakura-crossing
-项目（credit 见 `AL-Duet/assets/scenes/*/scene.json`）。
+cannon-es）保留各自许可证。**角色 VRM 不在本仓库分发**（禁止再分发第三方
+角色模型）：两条路线都要求使用者自备有合法权利的 VRM，放到
+`ARDY-V/assets/avatar.vrm` / `AL-Duet/assets/avatar.vrm`，
+`ARDY-V/checkpoints/*.pt` 为该路线训练的读出头，按原样提供。樱花街景模块
+来自 MIT 的 sakura-crossing 项目（credit 见 `AL-Duet/assets/scenes/*/scene.json`）。

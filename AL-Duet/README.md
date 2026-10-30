@@ -122,7 +122,6 @@ python -m engine.run --mode live --vision render --windows 300
 
 ## 许可
 
-代码 MIT（见仓库根 LICENSE）。`assets/avatar.vrm` 是第三方演示角色模型
-（Mafuyu v0.91 · 有坂みと），**其许可不属 MIT**、由原权利人保留，仅作
-演示随仓库分发；请替换为自己的 VRM 用于任何正式用途。樱花街景模块来自
-MIT 的 sakura-crossing 项目（credit 见 `assets/scenes/*/scene.json`）。
+代码 MIT（见仓库根 LICENSE）。**角色 VRM 不在本仓库分发**（禁止再分发第三方
+角色模型）：请自备有合法权利的 VRM 放到 `assets/avatar.vrm`，用于任何正式用途。
+樱花街景模块来自 MIT 的 sakura-crossing 项目（credit 见 `assets/scenes/*/scene.json`）。
