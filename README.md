@@ -19,7 +19,7 @@
 ```
 FlowState-Embodied/
 ├── README.md          本文件（仓库说明）
-├── LICENSE            MIT
+├── LICENSE            PolyForm Noncommercial 1.0.0（范围见 LICENSING.md）
 ├── .gitignore
 ├── ARDY-V/            视觉驱动：第一人称导航（独立目录，见其 README）
 │   ├── ardy_v/        服务、运行时、导航、推理、训练
@@ -43,7 +43,7 @@ FlowState-Embodied/
 
 ## ARDY-V · 视觉驱动的第一人称导航
 
-生成器本体属于外部研究代码，不在本仓库内分发。本路线开源
+生成器本体属于外部研究代码，不在本仓库内分发。本路线公开
 （视觉 → 占据 → 规划 → 生成 → 重定向）的实现，以及可复跑的
 **部分测试路线**（`ARDY-V/routes/`）。
 
@@ -130,7 +130,7 @@ python -m uvicorn ardy_v.service:app --host 127.0.0.1 --port 8830
 | ARDY Core8 生成器（`run_r07_ardy_precision` / `run_r10_ardy_inverse`） | 作者 AL 研究树——需自备同接口的动作生成栈 | `FLOWSTATE_AL0A`、`FLOWSTATE_CIP_RUNS` |
 | VRM 角色 | 本仓库**不附带**角色模型；自备有合法权利的 VRM 0/1 人形，放到 `assets/avatar.vrm` | `FLOWSTATE_VRM` |
 | DINOv2 ViT-B/14 reg4 权重 | 首次运行由 torch.hub 缓存自动下载 | — |
-| YOLO 权重（可选，仅 `tools/train_yolo_depth.py`） | 自行下载（AGPL 许可） | `FLOWSTATE_YOLO_WEIGHTS` |
+| YOLO 权重（训练与深度路线） | 已收录的 `yolo26n-depth.pt` 含 AGPL-3.0 声明；其他权重按来源另行获取，见第三方声明 | `FLOWSTATE_YOLO_WEIGHTS` |
 
 ### 已知局限
 
@@ -170,9 +170,11 @@ ARDY 只负责把决策执行成连续步态。角色自己判断环境——单
 
 ## 素材与许可
 
-代码以 [MIT](LICENSE) 发布。`web/vendor` 内第三方库（three.js、three-vrm、
+项目权利人有权许可的原创代码自本次许可变更起采用 [PolyForm Noncommercial 1.0.0](LICENSE)。允许用途及机构例外以原文为准；超出许可允许范围的商业用途须另行取得书面授权，见 [商业授权](COMMERCIAL.md)。历史版本与第三方权利不变，详见 [授权范围](LICENSING.md) 和 [第三方声明](THIRD_PARTY_NOTICES.md)。这是公开源码的非商业许可项目。
+
+`web/vendor` 内第三方库（three.js、three-vrm、
 cannon-es）保留各自许可证。**角色 VRM 不在本仓库分发**（禁止再分发第三方
 角色模型）：两条路线都要求使用者自备有合法权利的 VRM，放到
 `ARDY-V/assets/avatar.vrm` / `AL-Duet/assets/avatar.vrm`，
-`ARDY-V/checkpoints/*.pt` 为该路线训练的读出头，按原样提供。樱花街景模块
+`ARDY-V/checkpoints/` 中权重按各自来源条款提供；其中 `yolo26n-depth.pt` 内嵌 AGPL-3.0 声明并引用 Ultralytics 模块，不属于根非商业许可重新授权的范围，详见 [第三方声明](THIRD_PARTY_NOTICES.md)。樱花街景模块
 来自 MIT 的 sakura-crossing 项目（credit 见 `AL-Duet/assets/scenes/*/scene.json`）。
