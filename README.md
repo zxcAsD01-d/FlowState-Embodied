@@ -19,7 +19,7 @@
 ```
 FlowState-Embodied/
 ├── README.md          本文件（仓库说明）
-├── LICENSE            PolyForm Noncommercial 1.0.0（范围见 LICENSING.md）
+├── LICENSE            CC BY-NC 4.0（范围见 LICENSING.md）
 ├── .gitignore
 ├── ARDY-V/            视觉驱动：第一人称导航（独立目录，见其 README）
 │   ├── ardy_v/        服务、运行时、导航、推理、训练
@@ -170,7 +170,7 @@ ARDY 只负责把决策执行成连续步态。角色自己判断环境——单
 
 ## 素材与许可
 
-项目权利人有权许可的原创代码自本次许可变更起采用 [PolyForm Noncommercial 1.0.0](LICENSE)。允许用途及机构例外以原文为准；超出许可允许范围的商业用途须另行取得书面授权，见 [商业授权](COMMERCIAL.md)。历史版本与第三方权利不变，详见 [授权范围](LICENSING.md) 和 [第三方声明](THIRD_PARTY_NOTICES.md)。这是公开源码的非商业许可项目。
+项目权利人有权许可的原创软件采用 [CC BY-NC 4.0](LICENSE)（知识共享署名—非商业性使用 4.0 国际），具体条件以原文为准；分享时须履行署名等义务并标明修改。超出许可允许范围的商业使用须另行取得书面授权，见 [商业授权](COMMERCIAL.md)。授权范围及历史权利见 [LICENSING.md](LICENSING.md)，第三方例外见 [第三方声明](THIRD_PARTY_NOTICES.md)。这是公开源码的非商业许可项目。
 
 `web/vendor` 内第三方库（three.js、three-vrm、
 cannon-es）保留各自许可证。**角色 VRM 不在本仓库分发**（禁止再分发第三方
